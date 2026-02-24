@@ -1,0 +1,117 @@
+{
+  "DAPI": {
+    "description": "Nuclear counterstain.",
+    "biologicalRelevance": "Identifies all cell nuclei, providing a baseline for total cell count and tissue structure.",
+    "conjecture": "The model likely identifies distinct, high-contrast dark blue/purple blobs characteristic of hematoxylin-stained nuclei."
+  },
+  "TRITC": {
+    "description": "Background/Autofluorescence channel.",
+    "biologicalRelevance": "Used to subtract background noise and autofluorescence from other channels.",
+    "conjecture": "The model may look for diffuse, non-specific staining patterns or structural elements like collagen that naturally fluoresce."
+  },
+  "Cy5": {
+    "description": "Background/Autofluorescence channel.",
+    "biologicalRelevance": "Used to subtract background noise and autofluorescence from other channels.",
+    "conjecture": "Similar to TRITC, the model likely identifies broad structural features or red blood cells that exhibit broad-spectrum autofluorescence."
+  },
+  "PD-1": {
+    "description": "Programmed cell death protein 1.",
+    "biologicalRelevance": "Immune checkpoint receptor expressed on activated T cells. High expression indicates T cell exhaustion.",
+    "conjecture": "The model might associate PD-1 with specific morphological features of exhausted lymphocytes, possibly slightly enlarged or irregularly shaped nuclei compared to resting T cells, often found in proximity to tumor cells."
+  },
+  "CD14": {
+    "description": "Macrophage/Monocyte marker.",
+    "biologicalRelevance": "Identifies cells of the myelomonocytic lineage, primarily macrophages and monocytes, which play roles in phagocytosis and immune regulation.",
+    "conjecture": "The model likely looks for cells with larger, sometimes kidney-shaped or lobulated nuclei and more abundant cytoplasm compared to lymphocytes."
+  },
+  "CD4": {
+    "description": "Helper T cell marker.",
+    "biologicalRelevance": "Identifies T helper cells, which orchestrate immune responses by releasing cytokines.",
+    "conjecture": "The model identifies small, round, dense nuclei typical of lymphocytes. Distinguishing CD4 from CD8 purely on H&E is challenging; the model may rely on subtle contextual clues or spatial distribution patterns."
+  },
+  "T-bet": {
+    "description": "Transcription factor.",
+    "biologicalRelevance": "Master regulator of Th1 cell development and function, also expressed in NK cells and some CD8+ T cells. Indicates a type 1 immune response.",
+    "conjecture": "As a nuclear factor, the model might detect specific chromatin textures or nuclear morphologies associated with activated Th1/cytotoxic cells."
+  },
+  "CD34": {
+    "description": "Endothelial cell marker.",
+    "biologicalRelevance": "Identifies vascular endothelial cells, highlighting blood vessels and angiogenesis within the tumor microenvironment.",
+    "conjecture": "The model strongly associates this with elongated, flattened nuclei lining lumen-like structures or forming capillary networks."
+  },
+  "CD68": {
+    "description": "Pan-macrophage marker.",
+    "biologicalRelevance": "Broadly identifies macrophages, including both pro-inflammatory (M1) and anti-inflammatory (M2) phenotypes.",
+    "conjecture": "Similar to CD14, the model looks for larger cells with irregular nuclei and abundant, sometimes foamy or granular cytoplasm."
+  },
+  "CD16": {
+    "description": "Fc gamma receptor III.",
+    "biologicalRelevance": "Expressed on NK cells, neutrophils, and some macrophages. Involved in antibody-dependent cellular cytotoxicity (ADCC).",
+    "conjecture": "The model may identify polymorphonuclear cells (neutrophils) or specific subsets of large granular lymphocytes (NK cells)."
+  },
+  "CD11c": {
+    "description": "Dendritic cell marker.",
+    "biologicalRelevance": "Identifies dendritic cells, professional antigen-presenting cells crucial for initiating T cell responses.",
+    "conjecture": "The model might look for cells with irregular, indented nuclei and complex, branching cytoplasmic extensions (though hard to see on H&E, the nuclear shape might be a clue)."
+  },
+  "CD138": {
+    "description": "Plasma cell marker (Syndecan-1).",
+    "biologicalRelevance": "Identifies plasma cells, the effector B cells responsible for antibody production.",
+    "conjecture": "The model likely identifies the classic plasma cell morphology: an eccentrically placed, round nucleus with a 'clock-face' chromatin pattern and a prominent perinuclear halo (Golgi zone)."
+  },
+  "CD20": {
+    "description": "B cell marker.",
+    "biologicalRelevance": "Identifies B lymphocytes, which can form tertiary lymphoid structures (TLS) in the tumor microenvironment.",
+    "conjecture": "The model looks for small, dense, round nuclei. It may also heavily weight the spatial context, identifying dense clusters or follicle-like aggregates of these cells."
+  },
+  "CD3": {
+    "description": "Pan-T cell marker.",
+    "biologicalRelevance": "Identifies all T lymphocytes (both helper and cytotoxic).",
+    "conjecture": "The model identifies small, round, hyperchromatic nuclei with very little visible cytoplasm, typical of resting or circulating T cells."
+  },
+  "CD8": {
+    "description": "Cytotoxic T cell marker.",
+    "biologicalRelevance": "Identifies cytotoxic T lymphocytes, the primary effector cells for killing tumor cells.",
+    "conjecture": "The model looks for small, dense nuclei. It may differentiate them from other lymphocytes based on subtle morphological activation states or their direct physical interaction with tumor cells."
+  },
+  "PD-L1": {
+    "description": "Programmed death-ligand 1.",
+    "biologicalRelevance": "Immune checkpoint ligand often expressed by tumor cells or macrophages to suppress T cell responses.",
+    "conjecture": "The model likely associates PD-L1 expression with specific tumor cell morphologies (e.g., larger, pleomorphic cells) or specific macrophage phenotypes, particularly at the tumor-stroma interface."
+  },
+  "CK": {
+    "description": "Pan-Cytokeratin.",
+    "biologicalRelevance": "Epithelial marker, used to identify carcinoma (tumor) cells in epithelial cancers.",
+    "conjecture": "The model identifies cells with larger, often irregular or pleomorphic nuclei, prominent nucleoli, and more abundant, cohesive cytoplasm forming nests, sheets, or glandular structures."
+  },
+  "Ki67": {
+    "description": "Proliferation marker.",
+    "biologicalRelevance": "Expressed in all active phases of the cell cycle. Indicates the growth fraction of the tumor or proliferating immune cells.",
+    "conjecture": "The model likely detects specific nuclear features associated with cell division, such as mitotic figures, condensed chromosomes, or specific chromatin textures."
+  },
+  "Tryptase": {
+    "description": "Mast cell marker.",
+    "biologicalRelevance": "Identifies mast cells, which are involved in allergic responses, angiogenesis, and tissue remodeling.",
+    "conjecture": "The model might look for cells with a central, round nucleus and cytoplasm packed with granules (though granules may not be distinctly visible on standard H&E, the overall cell texture might differ)."
+  },
+  "Actin-D": {
+    "description": "Smooth muscle actin.",
+    "biologicalRelevance": "Identifies smooth muscle cells and myofibroblasts, highlighting blood vessel walls and reactive stroma (desmoplasia).",
+    "conjecture": "The model looks for elongated, spindle-shaped cells with cigar-shaped nuclei, often arranged in parallel bundles or surrounding vascular structures."
+  },
+  "Caspase3-D": {
+    "description": "Cleaved Caspase-3.",
+    "biologicalRelevance": "Marker of apoptosis (programmed cell death).",
+    "conjecture": "The model likely identifies apoptotic bodies: shrunken, hyper-eosinophilic cells with fragmented or condensed nuclei (karyorrhexis and pyknosis)."
+  },
+  "PHH3-B": {
+    "description": "Phospho-Histone H3.",
+    "biologicalRelevance": "Specific marker for cells in mitosis (M phase of the cell cycle).",
+    "conjecture": "The model specifically identifies distinct mitotic figures (e.g., metaphase plates, anaphase/telophase chromosome separation) visible on H&E."
+  },
+  "Transgelin": {
+    "description": "SM22 alpha.",
+    "biologicalRelevance": "Actin-binding protein expressed in smooth muscle cells and fibroblasts. Marker of stromal activation.",
+    "conjecture": "Similar to Actin-D, the model identifies spindle-shaped stromal cells, possibly distinguishing specific activation states based on subtle morphological or contextual cues in the extracellular matrix."
+  }
+}

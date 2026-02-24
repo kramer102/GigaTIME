@@ -15,8 +15,10 @@ import {
   CATEGORY_COLORS,
   groupByCategory,
 } from "@/lib/channels";
+import biomarkersData from "@/data/biomarkers.json";
+import MultiplexViewer from "@/components/MultiplexViewer";
 
-type ViewMode = "pred" | "gt" | "overlay";
+type ViewMode = "pred" | "gt" | "overlay" | "cam";
 
 export default function ExplorerPage() {
   const [tiles, setTiles] = useState<string[]>([]);
@@ -67,7 +69,7 @@ export default function ExplorerPage() {
         </select>
 
         <div className="flex gap-1 ml-2">
-          {(["pred", "gt", "overlay"] as ViewMode[]).map((m) => (
+          {(["pred", "gt", "overlay", "cam"] as ViewMode[]).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -77,7 +79,7 @@ export default function ExplorerPage() {
                 color: mode === m ? "#000" : "var(--muted)",
               }}
             >
-              {m === "pred" ? "Prediction" : m === "gt" ? "Ground Truth" : "Probability"}
+              {m === "pred" ? "Prediction" : m === "gt" ? "Ground Truth" : m === "overlay" ? "Probability" : "Interpretability"}
             </button>
           ))}
         </div>
@@ -94,6 +96,8 @@ export default function ExplorerPage() {
           className="w-48 h-48 object-cover rounded-lg"
         />
       </div>
+
+      <MultiplexViewer tile={tile} />
 
       {/* Channel grid by category */}
       {order.map((cat) => {
@@ -121,12 +125,22 @@ export default function ExplorerPage() {
                 const stat = stats?.channels.find((c) => c.name === name);
                 return (
                   <div key={name} className="card p-2">
-                    <img
-                      src={tileChannelUrl(tile, idx, kind)}
-                      alt={name}
-                      className="w-full aspect-square object-cover rounded-md mb-1.5"
-                      loading="lazy"
-                    />
+                    <div className="relative w-full aspect-square mb-1.5 rounded-md overflow-hidden bg-black">
+                      {mode === "cam" && (
+                        <img
+                          src={tileHEUrl(tile)}
+                          alt="H&E"
+                          className="absolute inset-0 w-full h-full object-cover opacity-50 grayscale"
+                          loading="lazy"
+                        />
+                      )}
+                      <img
+                        src={tileChannelUrl(tile, idx, kind)}
+                        alt={name}
+                        className={`absolute inset-0 w-full h-full object-cover ${mode === "cam" ? "mix-blend-screen" : ""}`}
+                        loading="lazy"
+                      />
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold" style={{ color }}>
                         {name}
@@ -140,6 +154,16 @@ export default function ExplorerPage() {
                     <p className="text-[0.6rem] text-[var(--muted)] leading-snug mt-0.5">
                       {CHANNELS[name]?.cellType}
                     </p>
+                    {biomarkersData[name as keyof typeof biomarkersData] && (
+                      <div className="mt-2 pt-2 border-t border-[var(--card-border)]">
+                        <p className="text-[0.65rem] text-[var(--foreground)] mb-1">
+                          <strong>Bio:</strong> {biomarkersData[name as keyof typeof biomarkersData].biologicalRelevance}
+                        </p>
+                        <p className="text-[0.65rem] text-[var(--muted)] italic">
+                          <strong>Model:</strong> {biomarkersData[name as keyof typeof biomarkersData].conjecture}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}

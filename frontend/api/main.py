@@ -234,16 +234,27 @@ def get_tile_he(tile_name: str):
 def get_tile_channel(
     tile_name: str,
     channel_idx: int,
-    kind: str = Query("pred", pattern="^(pred|gt|prob)$"),
+    kind: str = Query("pred", pattern="^(pred|gt|prob|cam)$"),
 ):
     """Serve a single channel as a grayscale PNG.
 
     kind=pred  → binary prediction (threshold 0.5)
     kind=gt    → ground-truth mask
     kind=prob  → raw probability map
+    kind=cam   → Grad-CAM attention map
     """
     pred_path = PRECOMPUTED / f"{tile_name}_pred.npz"
     gt_path = PRECOMPUTED / f"{tile_name}_gt.npz"
+    cam_path = PRECOMPUTED / f"{tile_name}_cam.npz"
+
+    if kind == "cam" and cam_path.is_file():
+        data = np.load(cam_path)
+        cams = data["cams"]  # (23, H, W) uint8
+        arr = cams[channel_idx]
+        img = Image.fromarray(arr, mode="L")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return StreamingResponse(io.BytesIO(buf.getvalue()), media_type="image/png")
 
     if kind in ("pred", "prob") and pred_path.is_file():
         data = np.load(pred_path)
