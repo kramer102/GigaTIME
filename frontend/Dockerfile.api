@@ -1,0 +1,26 @@
+# FastAPI backend for GigaTIME Explorer
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system deps for scipy/numpy
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ && rm -rf /var/lib/apt/lists/*
+
+# Python deps — install CPU-only PyTorch first to avoid huge CUDA download
+COPY frontend/api/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy app code (include frontend/__init__.py for module resolution)
+COPY frontend/__init__.py /app/frontend/__init__.py
+COPY frontend/api/ /app/frontend/api/
+COPY frontend/precompute.py /app/frontend/precompute.py
+COPY scripts/ /app/scripts/
+
+# Create precomputed dir
+RUN mkdir -p /app/frontend/precomputed
+
+EXPOSE 8000
+
+CMD ["uvicorn", "frontend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,31 @@
+# Next.js frontend for GigaTIME Explorer
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY frontend/web/package.json frontend/web/package-lock.json* ./
+RUN npm ci
+
+COPY frontend/web/ ./
+
+# Set API URL for the rewrite destination (baked at build time)
+ARG API_URL=http://localhost:8000
+ENV API_URL=${API_URL}
+
+RUN npm run build
+
+# --- Production image ---
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# Copy standalone server + static assets
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

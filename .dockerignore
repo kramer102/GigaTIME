@@ -9,6 +9,13 @@ __pycache__/
 .envrc
 .DS_Store
 
+# Node build artifacts
+frontend/web/node_modules
+frontend/web/.next
+
+# Precomputed data (bind-mounted at runtime)
+frontend/precomputed
+
 data/**
 !data/sample_metadata.csv
 

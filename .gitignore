@@ -3,6 +3,11 @@ data/**
 model/
 models/
 .DS_Store
+rek_notes.md
+*.pdf
+node_modules/
+.next/
+frontend/precomputed/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

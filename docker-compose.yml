@@ -1,0 +1,28 @@
+# GigaTIME Explorer — Docker Compose
+# Runs FastAPI backend + Next.js frontend
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./model:/app/model:ro
+      - ./scripts:/app/scripts:ro
+      - ./data:/app/data:ro
+      - ./frontend/precomputed:/app/frontend/precomputed
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.web
+      args:
+        API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
