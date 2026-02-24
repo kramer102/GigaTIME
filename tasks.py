@@ -22,3 +22,13 @@ def setup_branch(c, cuda=False, hf=False):
         f'uv run python -c "import {smoke_imports}; print(torch.__version__)"',
         pty=True,
     )
+
+
+@task(
+    help={
+        "image": "Docker image name to build/run.",
+    }
+)
+def container_test(c, image="gigatime-offline-test"):
+    c.run(f"docker build -f Dockerfile.offline-test -t {image} .", pty=True)
+    c.run(f"docker run --rm --network none {image}", pty=True)

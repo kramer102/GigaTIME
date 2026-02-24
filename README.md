@@ -62,6 +62,21 @@ Install optional Hugging Face dependency only when needed:
 uv sync --extra hf
 ```
 
+### Offline container test (no internet)
+
+Build and run a lightweight test container with network disabled:
+
+```bash
+uv run inv container-test
+```
+
+Equivalent Docker commands:
+
+```bash
+docker build -f Dockerfile.offline-test -t gigatime-offline-test .
+docker run --rm --network none gigatime-offline-test
+```
+
 ### Linux + NVIDIA CUDA (optional override)
 
 If you are running on Linux with NVIDIA GPUs, install CUDA wheels from the PyTorch index after `uv sync`:

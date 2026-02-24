@@ -1,0 +1,15 @@
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+
+WORKDIR /app
+
+ENV UV_LINK_MODE=copy
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+ENV PYTHONDONTWRITEBYTECODE=1
+
+COPY pyproject.toml uv.lock README.md tasks.py /app/
+COPY scripts /app/scripts
+COPY data/sample_metadata.csv /app/data/sample_metadata.csv
+
+RUN uv sync --frozen
+
+CMD ["uv", "run", "python", "-c", "import torch, torchvision, albumentations; print('offline test container ready')"]
