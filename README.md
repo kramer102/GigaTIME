@@ -17,18 +17,45 @@
 
 ## Environment Setup
 
-We recommend using Conda for environment management. The codebase has been tested with Python 3.11 using A100 GPUs for optimal reproducibility. Before creating the environment, ensure that the `torch` version specified in `environment.yml` matches your GPU and CUDA driver setup.
+We recommend using [`uv`](https://docs.astral.sh/uv/) for environment and dependency management. The codebase has been tested with Python 3.11 using A100 GPUs for optimal reproducibility.
 
-To set up the environment, run:
+### 1) Install dependencies (default: CPU/macOS-safe torch)
 
 ```bash
-conda env create -f environment.yml
+uv sync
 ```
 
-This will create a Conda environment named `gigatime`. Activate it with:
+For a fresh local branch setup (sync + smoke check), run:
 
 ```bash
-conda activate gigatime
+uv run inv setup-branch
+```
+
+For Linux + NVIDIA CUDA branch setup:
+
+```bash
+uv run inv setup-branch --cuda
+```
+
+### 2) Run commands through uv
+
+```bash
+uv run python scripts/db_train.py ...
+uv run python scripts/db_test.py ...
+```
+
+Quick dependency smoke check:
+
+```bash
+uv run python -c "import torch, torchvision, albumentations, huggingface_hub"
+```
+
+### Linux + NVIDIA CUDA (optional override)
+
+If you are running on Linux with NVIDIA GPUs, install CUDA wheels from the PyTorch index after `uv sync`:
+
+```bash
+uv run pip install --upgrade --index-url https://download.pytorch.org/whl/cu124 torch torchvision
 ```
 
 ## Data 
@@ -88,7 +115,7 @@ We also release the script needed to train the GigaTIME model here.
 To train the model:
 
 ```bash
-python scripts/db_train.py --arch gigatime   --tiling_dir "gigatime_training_path"  --window_size 256       --batch_size 32     --sampling_prob 1     --name GigaTIME_model    --output_dir "Output_Directory"    --epoch 300 --input_h 512 --input_w 512 --lr 0.001 --loss BCEDiceLoss --val_sampling_prob 1 --num_workers 12 --gpu_ids 0 1 2 3 4 5 6 7 --crop True --metadata "Gigatime metadata file"
+uv run python scripts/db_train.py --arch gigatime --tiling_dir "gigatime_training_path" --window_size 256 --batch_size 32 --sampling_prob 1 --name GigaTIME_model --output_dir "Output_Directory" --epochs 300 --input_h 512 --input_w 512 --lr 0.001 --loss BCEDiceLoss --val_sampling_prob 1 --num_workers 12 --gpu_ids 0 1 2 3 4 5 6 7 --crop True --metadata "Gigatime metadata file"
 ```
 
 ## Model Uses
