@@ -118,12 +118,25 @@ def parse_args():
 
     parser.add_argument('--val_sampling_prob', type=float,
                         default=0.01, help='ROI size to look into')
+    parser.add_argument('--weights_path', default='model/model.pth',
+                        help='Path to local model weights file')
    
 
     config = parser.parse_args()
     from easydict import EasyDict as edict
     return edict(vars(config))
     return config
+
+
+def resolve_weights_path(config):
+    weights_path = os.path.expanduser(config['weights_path'])
+    if os.path.isfile(weights_path):
+        return weights_path
+
+    raise FileNotFoundError(
+        f"Model weights not found at '{weights_path}'. "
+        "Provide a local checkpoint with --weights_path or place model/model.pth in the repo."
+    )
  
 
 
@@ -387,6 +400,9 @@ def main():
     with open(config['output_dir'] +'models/%s/config.yml' % config['name'], 'w') as f:
         yaml.dump(config, f)
 
+    weights_path = resolve_weights_path(config)
+    print(f"=> loading weights from {weights_path}")
+
     # define loss function (criterion)
     if config['loss'] == 'MSELoss':
         criterion = nn.MSELoss().cuda()
@@ -404,15 +420,6 @@ def main():
     model = archs.__dict__[config['arch']](config['num_classes'],
                                             config['input_channels']).cuda()
 
-    # Load it using the huggingface model card
-    from huggingface_hub import snapshot_download
-
-    repo_id = "prov-gigatime/GigaTIME"
-
-    # Download the repo snapshot 
-    local_dir = snapshot_download(repo_id=repo_id)
-
-    weights_path = os.path.join(local_dir, "model.pth")
     state_dict = torch.load(weights_path, map_location="cpu")
     model.load_state_dict(state_dict)
     model = torch.nn.DataParallel(model)

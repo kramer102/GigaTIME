@@ -34,6 +34,10 @@ dependencies = [
     "invoke~=2.2",
     "torch==2.4.*",
     "torchvision==0.19.*",
+]
+
+[project.optional-dependencies]
+hf = [
     "huggingface-hub~=0.33",
 ]
 

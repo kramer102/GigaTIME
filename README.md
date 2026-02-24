@@ -37,6 +37,12 @@ For Linux + NVIDIA CUDA branch setup:
 uv run inv setup-branch --cuda
 ```
 
+If you also need Hugging Face tooling installed:
+
+```bash
+uv run inv setup-branch --hf
+```
+
 ### 2) Run commands through uv
 
 ```bash
@@ -47,7 +53,13 @@ uv run python scripts/db_test.py ...
 Quick dependency smoke check:
 
 ```bash
-uv run python -c "import torch, torchvision, albumentations, huggingface_hub"
+uv run python -c "import torch, torchvision, albumentations"
+```
+
+Install optional Hugging Face dependency only when needed:
+
+```bash
+uv sync --extra hf
 ```
 
 ### Linux + NVIDIA CUDA (optional override)
@@ -72,31 +84,23 @@ Make sure the extracted folder are located in `./data/`.
 
 ## Pre-trained Model
 
-Model card available in [HuggingFace](https://huggingface.co/prov-gigatime/GigaTIME) 
+`scripts/db_test.py` uses local model files by default and does not download from Hugging Face.
 
-You need to agree to the terms to access the models. Once you have the necessary access, set your HuggingFace read-only token as an environment variable:
-```
-export HF_TOKEN=<huggingface read-only token>
-```
+Default local checkpoint path:
 
-If you don’t set the token, you might encounter the following error:
-```
-ValueError: We have no connection or you passed local_files_only, so force_download is not an accepted option.
+```text
+model/model.pth
 ```
 
-Once that is done, you can load your model like this:
+Override the local checkpoint path if needed:
 
-```python
-from huggingface_hub import snapshot_download
-import torch
-
-repo_id = "prov-gigatime/GigaTIME"
-local_dir = snapshot_download(repo_id=repo_id)
-
-weights_path = os.path.join(local_dir, "model.pth")
-state_dict = torch.load(weights_path, map_location="cpu")
-model.load_state_dict(state_dict)
+```bash
+uv run python scripts/db_test.py --weights_path /absolute/path/to/model.pth ...
 ```
+
+If the local checkpoint is missing, `db_test.py` exits with a clear `FileNotFoundError`.
+
+Model card is still available at [HuggingFace](https://huggingface.co/prov-gigatime/GigaTIME).
 
 ## Tutorials
 

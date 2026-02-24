@@ -407,7 +407,6 @@ dependencies = [
     { name = "anyio" },
     { name = "easydict" },
     { name = "edict" },
-    { name = "huggingface-hub" },
     { name = "imageio" },
     { name = "invoke" },
     { name = "ipykernel" },
@@ -434,6 +433,11 @@ dependencies = [
     { name = "tzdata" },
 ]
 
+[package.optional-dependencies]
+hf = [
+    { name = "huggingface-hub" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "albucore", specifier = "~=0.0" },
@@ -441,7 +445,7 @@ requires-dist = [
     { name = "anyio", specifier = "~=4.4" },
     { name = "easydict", specifier = "~=1.13" },
     { name = "edict", specifier = "~=0.51" },
-    { name = "huggingface-hub", specifier = "~=0.33" },
+    { name = "huggingface-hub", marker = "extra == 'hf'", specifier = "~=0.33" },
     { name = "imageio", specifier = "~=2.34" },
     { name = "invoke", specifier = "~=2.2" },
     { name = "ipykernel", specifier = "~=6.29" },
@@ -467,6 +471,7 @@ requires-dist = [
     { name = "typing-inspection", specifier = "~=0.4" },
     { name = "tzdata", specifier = "~=2025.1" },
 ]
+provides-extras = ["hf"]
 
 [[package]]
 name = "h11"

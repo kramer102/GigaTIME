@@ -1,15 +1,24 @@
 from invoke import task
 
 
-@task(help={"cuda": "Install Linux CUDA wheels for torch/torchvision after sync."})
-def setup_branch(c, cuda=False):
-    c.run("uv sync", pty=True)
+@task(
+    help={
+        "cuda": "Install Linux CUDA wheels for torch/torchvision after sync.",
+        "hf": "Install optional huggingface-hub dependency.",
+    }
+)
+def setup_branch(c, cuda=False, hf=False):
+    sync_cmd = "uv sync --extra hf" if hf else "uv sync"
+    c.run(sync_cmd, pty=True)
     if cuda:
         c.run(
             "uv run pip install --upgrade --index-url https://download.pytorch.org/whl/cu124 torch torchvision",
             pty=True,
         )
+    smoke_imports = "torch, torchvision, albumentations"
+    if hf:
+        smoke_imports += ", huggingface_hub"
     c.run(
-        'uv run python -c "import torch, torchvision, albumentations, huggingface_hub; print(torch.__version__)"',
+        f'uv run python -c "import {smoke_imports}; print(torch.__version__)"',
         pty=True,
     )
