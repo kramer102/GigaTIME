@@ -70,11 +70,25 @@ Build and run a lightweight test container with network disabled:
 uv run inv container-test
 ```
 
+Pass your host dataset directory as `/data` in the container:
+
+```bash
+uv run inv container-test --data-dir /data
+```
+
+Run both notebooks offline in the container with `/data` mounted:
+
+```bash
+uv run inv container-notebook-test --data-dir /data
+```
+
 Equivalent Docker commands:
 
 ```bash
 docker build -f Dockerfile.offline-test -t gigatime-offline-test .
-docker run --rm --network none gigatime-offline-test
+docker run --rm --network none -v /data:/data:ro gigatime-offline-test
+docker run --rm --network none -v "$PWD":/workspace -v /data:/data:ro -w /workspace gigatime-offline-test uv run jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=120 --ExecutePreprocessor.allow_errors=True --output /tmp/gigatime_testing.executed.ipynb scripts/gigatime_testing.ipynb
+docker run --rm --network none -v "$PWD":/workspace -v /data:/data:ro -w /workspace gigatime-offline-test uv run jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=120 --ExecutePreprocessor.allow_errors=True --output /tmp/gigatime_training.executed.ipynb scripts/gigatime_training.ipynb
 ```
 
 ### Linux + NVIDIA CUDA (optional override)
