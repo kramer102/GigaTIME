@@ -71,6 +71,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Source Materials */}
+      <section className="card mb-8">
+        <h2 className="text-xl font-bold mb-3">Source Materials</h2>
+        <div className="grid sm:grid-cols-2 gap-4 text-sm">
+          <ExtLink
+            href="https://www.cell.com/cell/fulltext/S0092-8674(24)01396-3"
+            icon="📄"
+            title="Paper (Cell)"
+            desc="Multimodal AI generates virtual population for tumor microenvironment modeling"
+          />
+          <ExtLink
+            href="https://www.microsoft.com/en-us/research/blog/gigatime-scaling-tumor-microenvironment-modeling-using-virtual-population-generated-by-multimodal-ai/"
+            icon="📝"
+            title="Microsoft Research Blog"
+            desc="GigaTIME: Scaling tumor microenvironment modeling using virtual population"
+          />
+          <ExtLink
+            href="https://github.com/prov-gigatime/GigaTIME"
+            icon="💻"
+            title="Source Repository"
+            desc="Original GigaTIME codebase — training, evaluation, and model architecture"
+          />
+          <ExtLink
+            href="https://huggingface.co/prov-gigatime/GigaTIME"
+            icon="🤗"
+            title="Model (Hugging Face)"
+            desc="Pre-trained GigaTIME UNet++ model weights and card"
+          />
+          <ExtLink
+            href="https://github.com/kramer102/GigaTIME/tree/exploratory_dashboard"
+            icon="🚀"
+            title="This Dashboard (GitHub)"
+            desc="Exploratory dashboard branch — the code powering this app"
+          />
+        </div>
+      </section>
+
       {/* Quick links */}
       <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <NavCard
@@ -150,5 +187,35 @@ function NavCard({
       </h3>
       <p className="text-xs text-[var(--muted)] mt-1 leading-relaxed">{desc}</p>
     </Link>
+  );
+}
+
+function ExtLink({
+  href,
+  icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-3 p-3 rounded-lg hover:bg-[var(--card-bg)] transition-colors group"
+    >
+      <span className="text-xl shrink-0">{icon}</span>
+      <div>
+        <h3 className="font-semibold text-[var(--fg)] group-hover:text-[var(--accent)] transition-colors">
+          {title}
+          <span className="ml-1 text-[var(--muted)] text-xs">↗</span>
+        </h3>
+        <p className="text-xs text-[var(--muted)] mt-0.5 leading-relaxed">{desc}</p>
+      </div>
+    </a>
   );
 }
