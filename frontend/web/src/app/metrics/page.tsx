@@ -175,10 +175,14 @@ export default function MetricsPage() {
               <Tooltip
                 contentStyle={{
                   background: "#1a1a2e",
-                  border: "1px solid #333",
+                  border: "1px solid #444",
                   borderRadius: 8,
                   fontSize: 12,
+                  color: "#ededed",
                 }}
+                itemStyle={{ color: "#ededed" }}
+                labelStyle={{ color: "#aaa", fontWeight: 600 }}
+                cursor={{ fill: "rgba(255,255,255,0.06)" }}
                 formatter={(v: number) => [v.toFixed(4), "Pearson r"]}
               />
               <Bar dataKey="pearson" radius={[4, 4, 0, 0]}>
@@ -230,7 +234,14 @@ export default function MetricsPage() {
                         <td
                           key={n}
                           className="px-1 py-0.5 text-center font-mono"
-                          style={{ background: bg }}
+                          style={{
+                            background: bg,
+                            color: isNaN(val)
+                              ? "var(--muted)"
+                              : val > 0.5
+                                ? "#000"
+                                : "#ededed",
+                          }}
                           title={`${n}: ${isNaN(val) ? "N/A" : val.toFixed(3)}`}
                         >
                           {isNaN(val) ? "–" : val.toFixed(2)}
@@ -280,8 +291,8 @@ export default function MetricsPage() {
                 <div className="mt-2 space-y-1">
                   {chRows.map((c) => (
                     <div key={c.name} className="flex justify-between text-xs">
-                      <span className="text-[var(--foreground)]/70">{c.name}</span>
-                      <span className="font-mono">{c.pearson.toFixed(3)}</span>
+                      <span className="text-[var(--fg)]" style={{ opacity: 0.7 }}>{c.name}</span>
+                      <span className="font-mono text-[var(--fg)]">{c.pearson.toFixed(3)}</span>
                     </div>
                   ))}
                 </div>
