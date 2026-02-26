@@ -14,13 +14,21 @@ frontend/web/node_modules
 frontend/web/.next
 
 # Precomputed data (bind-mounted at runtime)
-frontend/precomputed
+frontend/precomputed/*.npz
+# Keep png/ dir + metrics_summary.json in image; .npz files excluded (~1.1 GB)
 
-data/**
+# Data & model — uncomment next two lines to exclude from image (use volume mounts instead)
+# data/**
+# model/
 !data/sample_metadata.csv
+!data/sample_test_data/
 
-model/
-models/
+# Exclude large TIGER dataset from image
+data/tiger/
+
+# Dropbox extended attributes
+*:com.dropbox.attrs
+*:com.dropbox.posix.executable
 
 scripts/*.ipynb
 rek_notes.md

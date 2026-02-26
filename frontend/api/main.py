@@ -7,31 +7,43 @@ for the React frontend.
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
 import io
 import json
-import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from monai.inferers import sliding_window_inference
 from PIL import Image
+
+from frontend.api.config import load_runtime_config
+from frontend.api.cache import load_pred, load_gt, load_cam
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[2]  # GigaTIME/
 SCRIPTS = ROOT / "scripts"
-MODEL_PATH = ROOT / "model" / "model.pth"
-DATA_DIR = ROOT / "data" / "sample_test_data" / "data"
-PRECOMPUTED = ROOT / "frontend" / "precomputed"
-METADATA_CSV = ROOT / "data" / "sample_test_data" / "sample_metadata.csv"
+RUNTIME_CONFIG = load_runtime_config(ROOT)
+MODEL_PATH = RUNTIME_CONFIG.model_path
+DATA_DIR = RUNTIME_CONFIG.data_dir
+PRECOMPUTED = RUNTIME_CONFIG.precomputed_dir
+METADATA_CSV = RUNTIME_CONFIG.metadata_csv
+PNG_DIR = PRECOMPUTED / "png"
 
 # Ensure scripts/ is importable
 sys.path.insert(0, str(SCRIPTS))
+
+# ---------------------------------------------------------------------------
+# Cache-Control helpers
+# ---------------------------------------------------------------------------
+_IMMUTABLE = "public, max-age=86400, immutable"  # 24 h – precomputed data
+_SHORT = "public, max-age=300"                    # 5 min – tile list, channels
 
 # ---------------------------------------------------------------------------
 # Channel metadata
@@ -80,42 +92,44 @@ CATEGORY_COLORS = {
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = FastAPI(title="GigaTIME Explorer API", version="0.1.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ---------------------------------------------------------------------------
-# Lazy model loader
-# ---------------------------------------------------------------------------
-_model = None
-_device = None
 
 
-def _get_model():
-    global _model, _device
-    if _model is not None:
-        return _model, _device
-
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
     import torch
-    import archs  # from scripts/
+    import archs
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = archs.gigatime(num_classes=23, input_channels=3)
+    model = archs.gigatime(
+        num_classes=RUNTIME_CONFIG.num_classes,
+        input_channels=RUNTIME_CONFIG.input_channels,
+    )
     if not MODEL_PATH.is_file():
         raise RuntimeError(f"Model weights not found at {MODEL_PATH}")
     state_dict = torch.load(str(MODEL_PATH), map_location="cpu")
     model.load_state_dict(state_dict)
-    model = model.to(device).eval()
-    _model = model
-    _device = device
-    return model, device
+    app.state.model = model.to(device).eval()
+    app.state.model_device = device
+    app.state.runtime_config = RUNTIME_CONFIG
+    yield
 
+
+app = FastAPI(title="GigaTIME Explorer API", version="0.1.0", lifespan=app_lifespan)
+
+import os as _os
+_allowed_origins = [
+    o.strip()
+    for o in _os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    if o.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -134,22 +148,22 @@ def _preprocess_image(img_array: np.ndarray, target_size: int = 512) -> np.ndarr
     return arr.transpose(2, 0, 1)  # CHW
 
 
-def _run_inference(img_chw: np.ndarray, window_size: int = 256):
+def _run_inference(img_chw: np.ndarray, model, device, config):
     """Sliding-window inference → probability array (23, H, W)."""
     import torch
 
-    model, device = _get_model()
     tensor = torch.from_numpy(img_chw).unsqueeze(0).to(device)
-    _, c, h, w = tensor.shape
-    output = torch.zeros(1, 23, h, w, device=device)
 
     with torch.no_grad():
-        for i in range(0, h, window_size):
-            for j in range(0, w, window_size):
-                window = tensor[:, :, i:i + window_size, j:j + window_size]
-                output[:, :, i:i + window_size, j:j + window_size] = model(window)
-
-    probs = torch.sigmoid(output).squeeze(0).cpu().numpy()  # (23, H, W)
+        logits = sliding_window_inference(
+            inputs=tensor,
+            roi_size=(config.window_size, config.window_size),
+            sw_batch_size=config.sw_batch_size,
+            predictor=model,
+            overlap=config.tile_overlap,
+            mode="gaussian",
+        )
+    probs = torch.sigmoid(logits).squeeze(0).cpu().numpy()  # (23, H, W)
     return probs
 
 
@@ -201,24 +215,24 @@ def get_channels():
             "description": meta["desc"],
             "isBackground": name in BACKGROUND_CHANNELS,
         })
-    return channels
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=channels, headers={"Cache-Control": _SHORT})
 
 
 @app.get("/api/tiles")
 def get_tiles():
     """Return list of available sample tiles."""
-    # Check precomputed directory first
     precomputed_tiles = sorted({
         p.stem.replace("_pred", "")
         for p in PRECOMPUTED.glob("*_pred.npz")
     })
-    # Also check raw data
     raw_tiles = _tile_names()
-    return {
-        "tiles": raw_tiles,
-        "precomputed": precomputed_tiles,
-        "dataDir": str(DATA_DIR),
-    }
+    tiles = raw_tiles if raw_tiles else precomputed_tiles
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        content={"tiles": tiles, "precomputed": precomputed_tiles, "dataDir": str(DATA_DIR)},
+        headers={"Cache-Control": _SHORT},
+    )
 
 
 @app.get("/api/tile/{tile_name}/he")
@@ -227,78 +241,135 @@ def get_tile_he(tile_name: str):
     path = DATA_DIR / f"{tile_name}_he.png"
     if not path.is_file():
         raise HTTPException(404, f"H&E image not found: {tile_name}")
-    return StreamingResponse(open(path, "rb"), media_type="image/png")
+    return FileResponse(
+        path, media_type="image/png",
+        headers={"Cache-Control": _IMMUTABLE},
+    )
+
+
+@app.get("/api/tile/{tile_name}/thumb")
+def get_tile_thumb(tile_name: str):
+    """Serve a 256×256 H&E thumbnail (pre-rendered by precompute.py)."""
+    thumb = PNG_DIR / tile_name / "thumb_256.png"
+    if thumb.is_file():
+        return FileResponse(
+            thumb, media_type="image/png",
+            headers={"Cache-Control": _IMMUTABLE},
+        )
+    # Fallback: serve full-res H&E
+    path = DATA_DIR / f"{tile_name}_he.png"
+    if not path.is_file():
+        raise HTTPException(404, f"Thumbnail not found: {tile_name}")
+    return FileResponse(
+        path, media_type="image/png",
+        headers={"Cache-Control": _IMMUTABLE},
+    )
 
 
 @app.get("/api/tile/{tile_name}/channel/{channel_idx}")
-def get_tile_channel(
+async def get_tile_channel(
+    request: Request,
     tile_name: str,
     channel_idx: int,
     kind: str = Query("pred", pattern="^(pred|gt|prob|cam)$"),
 ):
     """Serve a single channel as a grayscale PNG.
 
-    kind=pred  → binary prediction (threshold 0.5)
-    kind=gt    → ground-truth mask
-    kind=prob  → raw probability map
-    kind=cam   → Grad-CAM attention map
+    Prefers pre-rendered static PNGs; falls back to LRU-cached .npz +
+    run_in_executor for CPU-bound encoding.
     """
-    pred_path = PRECOMPUTED / f"{tile_name}_pred.npz"
-    gt_path = PRECOMPUTED / f"{tile_name}_gt.npz"
-    cam_path = PRECOMPUTED / f"{tile_name}_cam.npz"
+    # ---- Fast path: static pre-rendered PNG ----------------------------
+    static_png = PNG_DIR / tile_name / f"{channel_idx}_{kind}.png"
+    if static_png.is_file():
+        return FileResponse(
+            static_png, media_type="image/png",
+            headers={"Cache-Control": _IMMUTABLE},
+        )
 
-    if kind == "cam" and cam_path.is_file():
-        data = np.load(cam_path)
-        cams = data["cams"]  # (23, H, W) uint8
-        arr = cams[channel_idx]
-        img = Image.fromarray(arr, mode="L")
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return StreamingResponse(io.BytesIO(buf.getvalue()), media_type="image/png")
+    # ---- Slow path: decompress .npz via LRU cache ----------------------
+    loop = asyncio.get_event_loop()
 
-    if kind in ("pred", "prob") and pred_path.is_file():
-        data = np.load(pred_path)
-        probs = data["probs"]  # (23, H, W)
-        if channel_idx < 0 or channel_idx >= probs.shape[0]:
-            raise HTTPException(400, "Invalid channel index")
-        arr = probs[channel_idx] if kind == "prob" else (probs[channel_idx] > 0.5).astype(np.float32)
-    elif kind == "gt" and gt_path.is_file():
-        data = np.load(gt_path)
-        masks = data["masks"]  # (23, H, W)
-        if channel_idx < 0 or channel_idx >= masks.shape[0]:
-            raise HTTPException(400, "Invalid channel index")
-        arr = masks[channel_idx].astype(np.float32)
-    else:
-        raise HTTPException(404, f"Precomputed data not found for {tile_name} ({kind})")
+    def _render():
+        if kind == "cam":
+            cam_path = PRECOMPUTED / f"{tile_name}_cam.npz"
+            if not cam_path.is_file():
+                raise HTTPException(404, f"Precomputed data not found for {tile_name} (cam)")
+            cams = load_cam(PRECOMPUTED, tile_name)  # cached
+            arr = cams[channel_idx]
+            img = Image.fromarray(arr, mode="L")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
 
-    png_bytes = _encode_png(arr)
-    return StreamingResponse(io.BytesIO(png_bytes), media_type="image/png")
+        if kind in ("pred", "prob"):
+            pred_path = PRECOMPUTED / f"{tile_name}_pred.npz"
+            if not pred_path.is_file():
+                raise HTTPException(404, f"Precomputed data not found for {tile_name} ({kind})")
+            config = request.app.state.runtime_config
+            probs = load_pred(PRECOMPUTED, tile_name)  # cached
+            if channel_idx < 0 or channel_idx >= probs.shape[0]:
+                raise HTTPException(400, "Invalid channel index")
+            arr = probs[channel_idx] if kind == "prob" else (probs[channel_idx] > config.probability_threshold).astype(np.float32)
+        elif kind == "gt":
+            gt_path = PRECOMPUTED / f"{tile_name}_gt.npz"
+            if not gt_path.is_file():
+                raise HTTPException(404, f"Precomputed data not found for {tile_name} (gt)")
+            masks = load_gt(PRECOMPUTED, tile_name)  # cached
+            if channel_idx < 0 or channel_idx >= masks.shape[0]:
+                raise HTTPException(400, "Invalid channel index")
+            arr = masks[channel_idx].astype(np.float32)
+        else:
+            raise HTTPException(404, f"Precomputed data not found for {tile_name} ({kind})")
+        return _encode_png(arr)
+
+    png_bytes = await loop.run_in_executor(None, _render)
+    return StreamingResponse(
+        io.BytesIO(png_bytes),
+        media_type="image/png",
+        headers={"Cache-Control": _IMMUTABLE},
+    )
 
 
 @app.get("/api/tile/{tile_name}/prediction")
-def get_tile_prediction_json(tile_name: str):
-    """Return full prediction metadata (positive pixel ratios per channel)."""
+async def get_tile_prediction_json(request: Request, tile_name: str):
+    """Return full prediction metadata (positive pixel ratios per channel).
+
+    Prefers pre-baked ``stats.json``; falls back to LRU-cached .npz in executor.
+    """
+    # ---- Fast path: pre-rendered stats.json ----------------------------
+    stats_path = PNG_DIR / tile_name / "stats.json"
+    if stats_path.is_file():
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            content=json.loads(stats_path.read_text()),
+            headers={"Cache-Control": _IMMUTABLE},
+        )
+
+    # ---- Slow path: compute from .npz ---------------------------------
     pred_path = PRECOMPUTED / f"{tile_name}_pred.npz"
     if not pred_path.is_file():
         raise HTTPException(404, "Precomputed prediction not found")
 
-    probs = np.load(pred_path)["probs"]  # (23, H, W)
-    binary = (probs > 0.5).astype(np.float32)
+    loop = asyncio.get_event_loop()
 
-    channel_stats = []
-    for i, name in enumerate(CHANNEL_NAMES):
-        if name in BACKGROUND_CHANNELS:
-            continue
-        pos_ratio = float(binary[i].mean())
-        mean_prob = float(probs[i].mean())
-        channel_stats.append({
-            "index": i,
-            "name": name,
-            "positiveRatio": round(pos_ratio, 4),
-            "meanProbability": round(mean_prob, 4),
-        })
+    def _compute():
+        probs = load_pred(PRECOMPUTED, tile_name)
+        binary = (probs > request.app.state.runtime_config.probability_threshold).astype(np.float32)
+        channel_stats = []
+        for i, name in enumerate(CHANNEL_NAMES):
+            if name in BACKGROUND_CHANNELS:
+                continue
+            channel_stats.append({
+                "index": i,
+                "name": name,
+                "positiveRatio": round(float(binary[i].mean()), 4),
+                "meanProbability": round(float(probs[i].mean()), 4),
+            })
+        return {"tileName": tile_name, "channels": channel_stats}
 
-    return {"tileName": tile_name, "channels": channel_stats}
+    result = await loop.run_in_executor(None, _compute)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=result, headers={"Cache-Control": _IMMUTABLE})
 
 
 @app.get("/api/metrics")
@@ -307,19 +378,44 @@ def get_metrics():
     metrics_path = PRECOMPUTED / "metrics_summary.json"
     if not metrics_path.is_file():
         raise HTTPException(404, "Metrics not computed yet. Run precompute.py first.")
-    return json.loads(metrics_path.read_text())
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        content=json.loads(metrics_path.read_text()),
+        headers={"Cache-Control": _IMMUTABLE},
+    )
+
+
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+_ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/tiff"}
 
 
 @app.post("/api/infer")
-async def infer_upload(file: UploadFile = File(...)):
+async def infer_upload(request: Request, file: UploadFile = File(...)):
     """Run live inference on an uploaded H&E image."""
+    # --- upload validation ---
+    if file.content_type and file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            415,
+            f"Unsupported file type '{file.content_type}'. "
+            f"Accepted: {', '.join(sorted(_ALLOWED_CONTENT_TYPES))}",
+        )
     contents = await file.read()
-    img = Image.open(io.BytesIO(contents)).convert("RGB")
+    if len(contents) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"File too large ({len(contents) / 1024 / 1024:.1f} MB). "
+            f"Maximum is {_MAX_UPLOAD_BYTES / 1024 / 1024:.0f} MB.",
+        )
+    try:
+        img = Image.open(io.BytesIO(contents)).convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Could not decode file as an image.")
     img_array = np.array(img)
 
-    chw = _preprocess_image(img_array, target_size=512)
-    probs = _run_inference(chw)  # (23, H, W)
-    binary = (probs > 0.5).astype(np.float32)
+    config = request.app.state.runtime_config
+    chw = _preprocess_image(img_array, target_size=config.input_size)
+    probs = _run_inference(chw, request.app.state.model, request.app.state.model_device, config)  # (23, H, W)
+    binary = (probs > config.probability_threshold).astype(np.float32)
 
     channel_stats = []
     for i, name in enumerate(CHANNEL_NAMES):
@@ -363,6 +459,6 @@ def health():
         "ok": True,
         "cuda": torch.cuda.is_available(),
         "device": str(torch.device("cuda" if torch.cuda.is_available() else "cpu")),
-        "modelLoaded": _model is not None,
+        "modelLoaded": hasattr(app.state, "model"),
         "precomputedTiles": len(list(PRECOMPUTED.glob("*_pred.npz"))),
     }

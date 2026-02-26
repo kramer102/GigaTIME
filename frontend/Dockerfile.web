@@ -22,9 +22,13 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# Run as non-root user
+RUN adduser -D appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Copy standalone server + static assets
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=appuser:appuser /app/.next/standalone ./
+COPY --from=builder --chown=appuser:appuser /app/.next/static ./.next/static
 
 EXPOSE 3000
 

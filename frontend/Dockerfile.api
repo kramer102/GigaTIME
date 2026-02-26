@@ -7,9 +7,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ && rm -rf /var/lib/apt/lists/*
 
-# Python deps — install CPU-only PyTorch first to avoid huge CUDA download
+# Python deps — install torch/torchvision from configurable index
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 COPY frontend/api/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+RUN pip install --no-cache-dir torch torchvision --index-url ${TORCH_INDEX_URL} && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy app code (include frontend/__init__.py for module resolution)
@@ -17,9 +18,23 @@ COPY frontend/__init__.py /app/frontend/__init__.py
 COPY frontend/api/ /app/frontend/api/
 COPY frontend/precompute.py /app/frontend/precompute.py
 COPY scripts/ /app/scripts/
+COPY config/ /app/config/
 
-# Create precomputed dir
-RUN mkdir -p /app/frontend/precomputed
+# Copy pre-rendered PNG assets (lightweight, ~60 MB)
+# The full precomputed dir (.npz files, model, data) comes from Azure Files mount
+COPY frontend/precomputed/ /app/frontend/precomputed/
+
+# Azure Files config — points paths to /mnt/gigatime mount
+# Override at runtime via GIGATIME_CONFIG env var
+COPY config/runtime.azure.json /app/config/runtime.azure.json
+
+# For local/non-mount deployments, also copy the standard config
+# (model + data must be COPY'd or mounted separately in that case)
+COPY config/runtime.json /app/config/runtime.json
+
+# Run as non-root user
+RUN useradd -m -r appuser && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
