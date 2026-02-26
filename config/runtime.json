@@ -1,0 +1,13 @@
+{
+  "model_path": "model/model.pth",
+  "data_dir": "data/sample_test_data/data",
+  "precomputed_dir": "frontend/precomputed",
+  "metadata_csv": "data/sample_test_data/sample_metadata.csv",
+  "num_classes": 23,
+  "input_channels": 3,
+  "input_size": 512,
+  "window_size": 256,
+  "sw_batch_size": 8,
+  "tile_overlap": 0.0,
+  "probability_threshold": 0.5
+}

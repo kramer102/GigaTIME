@@ -9,6 +9,8 @@ This guide covers both local development and Docker-based execution.
 - Node.js and npm (for frontend local dev)
 - Docker Desktop (for container workflow)
 
+Runtime config is loaded from `config/runtime.json` (override with `GIGATIME_CONFIG=/path/to/runtime.json`).
+
 ## Option A: Local development (recommended for code changes)
 
 ### 1) Install Python dependencies
@@ -21,6 +23,24 @@ Optional branch setup helper:
 
 ```bash
 uv run inv setup-branch
+```
+
+NVIDIA GPU setup (recommended when CUDA is available):
+
+```bash
+uv run inv setup-branch --cuda
+```
+
+Optional with Hugging Face dependency:
+
+```bash
+uv run inv setup-branch --cuda --hf
+```
+
+Verify GPU is visible to PyTorch:
+
+```bash
+uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no-gpu')"
 ```
 
 ### 2) Ensure model and sample data exist
@@ -73,6 +93,56 @@ docker compose up --build
 
 Use `docker compose` (not `docker-compose`) on modern Docker installations.
 
+For NVIDIA GPU in Compose, use the GPU override file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+Equivalent Invoke task:
+
+```bash
+uv run inv compose-start --gpu
+```
+
+Without the GPU override, containers run CPU-only.
+
+For isolated/offline simulation (no outbound internet egress), add the isolated override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.isolated.yml up --build
+```
+
+Equivalent Invoke task:
+
+```bash
+uv run inv compose-start --gpu --isolated
+```
+
+GPU + isolated environment smoke test:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
+docker compose exec api python -c "import socket, torch; print('cuda', torch.cuda.is_available()); print('device', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no-gpu'); socket.gethostbyname('pypi.org')"
+```
+
+Equivalent Invoke task:
+
+```bash
+uv run inv compose-gpu-isolated-smoke
+```
+
+If your Docker socket requires elevated permissions, add `--sudo` to these tasks (for example: `uv run inv compose-start --gpu --sudo`).
+
+Expected for isolation test: GPU line should be `True` (on GPU hosts), and DNS lookup for `pypi.org` should fail in the internal network.
+
+GPU-enabled offline tests via Invoke:
+
+```bash
+uv run inv container-test --gpu --data-dir /data
+uv run inv container-notebook-test --gpu --data-dir /data
+```
+
 Services:
 
 - Web: `http://localhost:3000`
@@ -82,6 +152,13 @@ Stop services:
 
 ```bash
 docker compose down
+```
+
+Equivalent Invoke tasks:
+
+```bash
+uv run inv compose-ps --gpu
+uv run inv compose-stop --gpu
 ```
 
 ## Quick verification commands
@@ -107,6 +184,19 @@ Use:
 
 ```bash
 docker compose up --build
+```
+
+### `docker: command not found` in WSL
+
+Enable Docker Desktop WSL integration for your distro, then retry the compose command.
+
+### `permission denied` on `/var/run/docker.sock`
+
+Use `--sudo` with invoke compose tasks, or add your user to the `docker` group:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
 ### `uv run pytest` fails with `No such file or directory`

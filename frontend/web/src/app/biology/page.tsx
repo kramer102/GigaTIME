@@ -1,12 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   CHANNELS,
   ACTIVE_CHANNELS,
   CATEGORY_COLORS,
-  groupByCategory,
+  CATEGORY_LABELS,
 } from "@/lib/channels";
+import biomarkers from "@/data/biomarkers.json";
+import {
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Brain,
+  Microscope,
+  FlaskConical,
+  Dna,
+} from "lucide-react";
+
+/* ── Types ── */
+type BiomarkerEntry = {
+  description: string;
+  biologicalRelevance: string;
+  conjecture: string;
+};
+const biomarkerData = biomarkers as Record<string, BiomarkerEntry>;
 
 /* ── TME educational content ── */
 const TME_INTRO = {
@@ -21,7 +39,6 @@ interface CategoryGuide {
   title: string;
   description: string;
   clinical: string;
-  channels: { name: string; role: string }[];
 }
 
 const GUIDES: CategoryGuide[] = [
@@ -32,19 +49,6 @@ const GUIDES: CategoryGuide[] = [
       "Immune cells infiltrate the tumor and can either attack or inadvertently protect cancer cells. Their density and spatial distribution are among the strongest predictors of patient outcome.",
     clinical:
       "High immune cell infiltration (especially CD8+ cytotoxic T cells) is generally associated with better prognosis and response to immunotherapy.",
-    channels: [
-      { name: "CD3", role: "Pan T-cell marker — marks all T lymphocytes" },
-      { name: "CD4", role: "Helper T cells — coordinate immune responses" },
-      { name: "CD8", role: "Cytotoxic T cells — directly kill tumor cells" },
-      { name: "CD20", role: "B lymphocytes — antibody production and antigen presentation" },
-      { name: "CD68", role: "Macrophages — phagocytosis and inflammation (can be pro- or anti-tumor)" },
-      { name: "CD14", role: "Monocytes — precursors to macrophages and dendritic cells" },
-      { name: "CD16", role: "Natural killer cells / monocytes — innate immune surveillance" },
-      { name: "CD11c", role: "Dendritic cells — present antigens to T cells to initiate adaptive immunity" },
-      { name: "CD138", role: "Plasma cells — terminally differentiated B cells producing antibodies" },
-      { name: "T-bet", role: "Transcription factor indicating Th1-polarized (anti-tumor) immune response" },
-      { name: "Tryptase", role: "Mast cells — involved in allergy, inflammation, and tumor angiogenesis" },
-    ],
   },
   {
     category: "checkpoint",
@@ -53,10 +57,6 @@ const GUIDES: CategoryGuide[] = [
       "Immune checkpoint molecules act as 'brakes' on the immune system. Tumors can hijack these pathways to evade immune attack. Checkpoint inhibitor drugs (like pembrolizumab and nivolumab) block these brakes to re-activate anti-tumor immunity.",
     clinical:
       "PD-L1 expression on tumor cells is used clinically to predict response to PD-1/PD-L1 inhibitors. Co-localization of PD-1 (on T cells) with PD-L1 (on tumor cells) suggests active immune suppression.",
-    channels: [
-      { name: "PD-1", role: "Expressed on exhausted T cells — a marker of chronic antigen stimulation" },
-      { name: "PD-L1", role: "Expressed on tumor/immune cells — binds PD-1 to suppress T cell activity" },
-    ],
   },
   {
     category: "tumor",
@@ -65,12 +65,6 @@ const GUIDES: CategoryGuide[] = [
       "These markers identify cancer cells themselves and measure how actively they are dividing or dying. The balance between proliferation and cell death shapes tumor growth rate.",
     clinical:
       "High Ki67 indicates rapidly dividing tumor (aggressive); high Caspase-3 / PHH3 may indicate response to chemotherapy. CK (cytokeratin) delineates epithelial tumor boundaries.",
-    channels: [
-      { name: "CK", role: "Cytokeratin — epithelial cell marker that outlines tumor cell nests" },
-      { name: "Ki67", role: "Proliferation marker — fraction of actively dividing cells" },
-      { name: "PHH3-B", role: "Phospho-histone H3 — marks cells in mitosis (M phase)" },
-      { name: "Caspase3-D", role: "Cleaved Caspase-3 — marker of apoptosis (programmed cell death)" },
-    ],
   },
   {
     category: "structural",
@@ -79,12 +73,6 @@ const GUIDES: CategoryGuide[] = [
       "Structural markers reveal the tissue architecture: blood vessels, muscle, and nuclear organization. The stroma provides physical scaffolding and can facilitate or hinder immune cell access to tumor nests.",
     clinical:
       "CD34+ vessel density indicates angiogenesis; high Transgelin/α-SMA marks cancer-associated fibroblasts (CAFs) which are linked to poor prognosis. DAPI stains all nuclei, giving overall tissue cellularity.",
-    channels: [
-      { name: "DAPI", role: "Nuclei stain — shows all cell nuclei regardless of cell type" },
-      { name: "CD34", role: "Endothelial marker — highlights blood vessel networks" },
-      { name: "Actin-D", role: "Smooth muscle actin — marks myofibroblasts and vessel walls" },
-      { name: "Transgelin", role: "SM22α — stromal/fibroblast marker associated with ECM remodeling" },
-    ],
   },
 ];
 
@@ -111,8 +99,60 @@ const SPATIAL_PATTERNS = [
   },
 ];
 
+/* ── Helpers ── */
+const ALL_CATEGORIES = ["immune", "checkpoint", "tumor", "structural"] as const;
+
+function channelsForCategory(cat: string): string[] {
+  return ACTIVE_CHANNELS.filter((ch) => CHANNELS[ch]?.category === cat);
+}
+
+/* ================================================================== */
+
 export default function BiologyPage() {
   const [expanded, setExpanded] = useState<string | null>("immune");
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+
+  /* ── search + category filter ── */
+  const filteredChannels = useMemo(() => {
+    const term = search.toLowerCase();
+    return ACTIVE_CHANNELS.filter((ch) => {
+      const meta = CHANNELS[ch];
+      const bio = biomarkerData[ch];
+      // category filter
+      if (activeCategory && meta?.category !== activeCategory) return false;
+      // text search
+      if (!term) return true;
+      return (
+        ch.toLowerCase().includes(term) ||
+        meta?.cellType?.toLowerCase().includes(term) ||
+        meta?.desc?.toLowerCase().includes(term) ||
+        bio?.description?.toLowerCase().includes(term) ||
+        bio?.biologicalRelevance?.toLowerCase().includes(term) ||
+        bio?.conjecture?.toLowerCase().includes(term)
+      );
+    });
+  }, [search, activeCategory]);
+
+  /* group filtered channels by category */
+  const grouped = useMemo(() => {
+    const g: Record<string, string[]> = {};
+    for (const ch of filteredChannels) {
+      const cat = CHANNELS[ch]?.category ?? "other";
+      if (!g[cat]) g[cat] = [];
+      g[cat].push(ch);
+    }
+    return g;
+  }, [filteredChannels]);
+
+  const toggleCard = (ch: string) =>
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(ch)) next.delete(ch);
+      else next.add(ch);
+      return next;
+    });
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -122,7 +162,7 @@ export default function BiologyPage() {
         and the tumor microenvironment.
       </p>
 
-      {/* TME overview */}
+      {/* ── TME overview ── */}
       <section className="card mb-8">
         <h2 className="text-lg font-bold mb-3">{TME_INTRO.title}</h2>
         <p className="text-sm leading-relaxed text-[var(--foreground)]/80 whitespace-pre-line">
@@ -130,7 +170,7 @@ export default function BiologyPage() {
         </p>
       </section>
 
-      {/* How mIF works */}
+      {/* ── H&E vs mIF ── */}
       <section className="card mb-8">
         <h2 className="text-lg font-bold mb-3">H&amp;E vs. Multiplex IF</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -157,13 +197,14 @@ export default function BiologyPage() {
         </div>
       </section>
 
-      {/* Category guides — accordion */}
+      {/* ── Category overview accordion ── */}
       <section className="mb-8">
-        <h2 className="text-lg font-bold mb-4">Channel-by-Channel Guide</h2>
+        <h2 className="text-lg font-bold mb-4">Category Overview</h2>
         <div className="space-y-2">
           {GUIDES.map((g) => {
             const isOpen = expanded === g.category;
             const color = CATEGORY_COLORS[g.category] ?? "#888";
+            const chCount = channelsForCategory(g.category).length;
             return (
               <div key={g.category} className="card">
                 <button
@@ -179,7 +220,7 @@ export default function BiologyPage() {
                       {g.title}
                     </span>
                     <span className="text-xs text-[var(--muted)]">
-                      ({g.channels.length} markers)
+                      ({chCount} markers)
                     </span>
                   </div>
                   <span className="text-[var(--muted)] text-lg">
@@ -188,7 +229,7 @@ export default function BiologyPage() {
                 </button>
 
                 {isOpen && (
-                  <div className="mt-4 space-y-4">
+                  <div className="mt-4 space-y-3">
                     <p className="text-sm text-[var(--foreground)]/80">
                       {g.description}
                     </p>
@@ -200,35 +241,6 @@ export default function BiologyPage() {
                         {g.clinical}
                       </p>
                     </div>
-                    <div className="space-y-2">
-                      {g.channels.map((ch) => {
-                        const meta = CHANNELS[ch.name];
-                        return (
-                          <div
-                            key={ch.name}
-                            className="flex items-start gap-3 p-2 rounded-md hover:bg-[var(--background)] transition-colors"
-                          >
-                            <span
-                              className="mt-1 w-2 h-2 rounded-full shrink-0"
-                              style={{ background: meta?.color ?? color }}
-                            />
-                            <div>
-                              <span className="text-sm font-bold" style={{ color: meta?.color ?? color }}>
-                                {ch.name}
-                              </span>
-                              {meta?.cellType && (
-                                <span className="text-xs text-[var(--muted)] ml-2">
-                                  ({meta.cellType})
-                                </span>
-                              )}
-                              <p className="text-xs text-[var(--foreground)]/60 mt-0.5">
-                                {ch.role}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
                 )}
               </div>
@@ -237,7 +249,199 @@ export default function BiologyPage() {
         </div>
       </section>
 
-      {/* Spatial patterns */}
+      {/* ── Biomarker Deep-Dive ── */}
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <Microscope className="w-5 h-5 text-[var(--accent)]" />
+          <h2 className="text-lg font-bold">Biomarker Deep-Dive</h2>
+        </div>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          Explore each protein marker — its biology and what the AI model may be
+          learning from H&amp;E morphology.
+        </p>
+
+        {/* search bar */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search markers, cell types, biology…"
+            className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--background)] border border-[var(--muted)]/30 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+          />
+        </div>
+
+        {/* category filter pills */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              activeCategory === null
+                ? "bg-[var(--accent)] text-white"
+                : "bg-[var(--background)] text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            All ({ACTIVE_CHANNELS.length})
+          </button>
+          {ALL_CATEGORIES.map((cat) => {
+            const color = CATEGORY_COLORS[cat];
+            const count = channelsForCategory(cat).length;
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(isActive ? null : cat)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  isActive
+                    ? "text-white"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+                style={
+                  isActive
+                    ? { background: color, borderColor: color }
+                    : { borderColor: `${color}44` }
+                }
+              >
+                {CATEGORY_LABELS[cat]} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* results count */}
+        {(search || activeCategory) && (
+          <p className="text-xs text-[var(--muted)] mb-3">
+            Showing {filteredChannels.length} of {ACTIVE_CHANNELS.length} markers
+          </p>
+        )}
+
+        {/* biomarker cards grouped by category */}
+        {filteredChannels.length === 0 ? (
+          <div className="card text-center py-8 text-[var(--muted)] text-sm">
+            No markers match your search.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([cat, channels]) => {
+              const color = CATEGORY_COLORS[cat] ?? "#888";
+              return (
+                <div key={cat}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ background: color }}
+                    />
+                    <h3 className="text-sm font-bold" style={{ color }}>
+                      {CATEGORY_LABELS[cat] ?? cat}
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {channels.map((ch) => {
+                      const meta = CHANNELS[ch];
+                      const bio = biomarkerData[ch];
+                      const isOpen = expandedCards.has(ch);
+                      const chColor = meta?.color ?? color;
+
+                      return (
+                        <div
+                          key={ch}
+                          className="card transition-all"
+                          style={{
+                            borderLeft: `3px solid ${chColor}`,
+                          }}
+                        >
+                          {/* card header — always visible */}
+                          <button
+                            onClick={() => toggleCard(ch)}
+                            className="w-full flex items-center justify-between text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ background: chColor }}
+                              />
+                              <div>
+                                <span
+                                  className="text-sm font-bold"
+                                  style={{ color: chColor }}
+                                >
+                                  {ch}
+                                </span>
+                                {meta?.cellType && (
+                                  <span className="text-xs text-[var(--muted)] ml-2">
+                                    {meta.cellType}
+                                  </span>
+                                )}
+                                <p className="text-xs text-[var(--foreground)]/60 mt-0.5">
+                                  {bio?.description ?? meta?.desc}
+                                </p>
+                              </div>
+                            </div>
+                            {isOpen ? (
+                              <ChevronUp className="w-4 h-4 text-[var(--muted)] shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-[var(--muted)] shrink-0" />
+                            )}
+                          </button>
+
+                          {/* expanded content */}
+                          {isOpen && bio && (
+                            <div className="mt-4 space-y-3 pl-8">
+                              {/* Biological Relevance */}
+                              <div className="flex items-start gap-2">
+                                <Dna className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                                <div>
+                                  <p className="text-xs font-semibold text-emerald-400 mb-0.5">
+                                    Biological Relevance
+                                  </p>
+                                  <p className="text-xs text-[var(--foreground)]/70 leading-relaxed">
+                                    {bio.biologicalRelevance}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Channel description from channels.ts */}
+                              {meta?.desc && (
+                                <div className="flex items-start gap-2">
+                                  <FlaskConical className="w-4 h-4 mt-0.5 shrink-0 text-sky-400" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-sky-400 mb-0.5">
+                                      Marker Role
+                                    </p>
+                                    <p className="text-xs text-[var(--foreground)]/70 leading-relaxed">
+                                      {meta.desc}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* AI's View — distinct styling */}
+                              <div className="rounded-lg bg-purple-500/10 border border-purple-500/25 p-3">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Brain className="w-4 h-4 text-purple-400" />
+                                  <p className="text-xs font-semibold text-purple-400">
+                                    AI&apos;s View
+                                  </p>
+                                </div>
+                                <p className="text-xs text-purple-300/80 leading-relaxed italic">
+                                  {bio.conjecture}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Spatial patterns ── */}
       <section className="mb-8">
         <h2 className="text-lg font-bold mb-4">Key Spatial Patterns to Look For</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -254,7 +458,7 @@ export default function BiologyPage() {
         </div>
       </section>
 
-      {/* GigaTIME approach */}
+      {/* ── How GigaTIME Works ── */}
       <section className="card mb-8">
         <h2 className="text-lg font-bold mb-3">How GigaTIME Works</h2>
         <div className="space-y-3 text-sm text-[var(--foreground)]/80">
@@ -292,7 +496,7 @@ export default function BiologyPage() {
         </div>
       </section>
 
-      {/* Glossary */}
+      {/* ── Glossary ── */}
       <section className="card">
         <h2 className="text-lg font-bold mb-3">Glossary</h2>
         <dl className="space-y-2 text-sm">

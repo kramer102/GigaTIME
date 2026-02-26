@@ -2,24 +2,32 @@
 Pre-compute predictions and metrics for all sample tiles.
 
 Usage:
-    python -m frontend.precompute          # from GigaTIME root
-    python frontend/precompute.py          # also works
+    python -m frontend.precompute                    # full inference + render
+    python -m frontend.precompute --render-only      # bake PNGs/stats/thumbs from existing .npz
+    python frontend/precompute.py                    # also works
 """
 from __future__ import annotations
 
+import argparse
+import io
 import json
 import sys
 from pathlib import Path
 
 import numpy as np
+from PIL import Image as PILImage
+from monai.inferers import sliding_window_inference
 
 ROOT = Path(__file__).resolve().parents[1]  # GigaTIME/
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-DATA_DIR = ROOT / "data" / "sample_test_data" / "data"
-MODEL_PATH = ROOT / "model" / "model.pth"
-OUT_DIR = ROOT / "frontend" / "precomputed"
+from frontend.api.config import load_runtime_config
+
+CONFIG = load_runtime_config(ROOT)
+DATA_DIR = CONFIG.data_dir
+MODEL_PATH = CONFIG.model_path
+OUT_DIR = CONFIG.precomputed_dir
 
 CHANNEL_NAMES = [
     "DAPI", "TRITC", "Cy5", "PD-1", "CD14", "CD4", "T-bet", "CD34",
@@ -37,34 +45,37 @@ def load_model():
     import archs
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = archs.gigatime(num_classes=23, input_channels=3)
+    model = archs.gigatime(num_classes=CONFIG.num_classes, input_channels=CONFIG.input_channels)
     state_dict = torch.load(str(MODEL_PATH), map_location="cpu")
     model.load_state_dict(state_dict)
     model.to(device).eval()
     return model, device
 
 
-def preprocess(img_array: np.ndarray, size: int = 512) -> np.ndarray:
+def preprocess(img_array: np.ndarray, size: int | None = None) -> np.ndarray:
     from PIL import Image
 
-    img = Image.fromarray(img_array).resize((size, size), Image.BILINEAR)
+    target_size = size or CONFIG.input_size
+    img = Image.fromarray(img_array).resize((target_size, target_size), Image.BILINEAR)
     arr = np.array(img, dtype=np.float32) / 255.0
     arr = (arr - MEAN) / STD
     return arr.transpose(2, 0, 1)
 
 
-def infer(model, device, chw: np.ndarray, window: int = 256) -> np.ndarray:
+def infer(model, device, chw: np.ndarray) -> np.ndarray:
     import torch
 
     tensor = torch.from_numpy(chw).unsqueeze(0).to(device)
-    _, c, h, w = tensor.shape
-    output = torch.zeros(1, 23, h, w, device=device)
     with torch.no_grad():
-        for i in range(0, h, window):
-            for j in range(0, w, window):
-                win = tensor[:, :, i:i + window, j:j + window]
-                output[:, :, i:i + window, j:j + window] = model(win)
-    return torch.sigmoid(output).squeeze(0).cpu().numpy()
+        logits = sliding_window_inference(
+            inputs=tensor,
+            roi_size=(CONFIG.window_size, CONFIG.window_size),
+            sw_batch_size=CONFIG.sw_batch_size,
+            predictor=model,
+            overlap=CONFIG.tile_overlap,
+            mode="gaussian",
+        )
+    return torch.sigmoid(logits).squeeze(0).cpu().numpy()
 
 
 def load_gt(tile_name: str) -> np.ndarray | None:
@@ -90,15 +101,15 @@ def load_gt(tile_name: str) -> np.ndarray | None:
         unpacked = np.unpackbits(packed, axis=-1)
         mask = unpacked[..., :original_last_dim].reshape(original_shape)  # (H, W, 23)
 
-        # Resize to 512×512 to match predictions
+        # Resize to configured inference size to match predictions
         from PIL import Image
 
         resized_channels = []
         for ch in range(mask.shape[2]):
             ch_img = Image.fromarray(mask[:, :, ch].astype(np.uint8) * 255)
-            ch_img = ch_img.resize((512, 512), Image.NEAREST)
+            ch_img = ch_img.resize((CONFIG.input_size, CONFIG.input_size), Image.NEAREST)
             resized_channels.append(np.array(ch_img, dtype=np.float32) / 255.0)
-        return np.stack(resized_channels, axis=0)  # (23, 512, 512)
+        return np.stack(resized_channels, axis=0)  # (C, H, W)
     except Exception as e:
         print(f"  Warning: could not load GT for {tile_name}: {e}")
         return None
@@ -135,9 +146,141 @@ def compute_box_pearson(pred: np.ndarray, gt: np.ndarray, box_size: int = 8):
     return results
 
 
+# ---------------------------------------------------------------------------
+# PNG / thumbnail / stats rendering (can run without GPU)
+# ---------------------------------------------------------------------------
+
+THUMB_SIZE = 256
+
+
+def _encode_png(arr_2d: np.ndarray) -> bytes:
+    """Encode a 2-D float32 array (0-1) as a grayscale PNG."""
+    clipped = np.clip(arr_2d * 255, 0, 255).astype(np.uint8)
+    img = PILImage.fromarray(clipped, mode="L")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _encode_uint8_png(arr_2d: np.ndarray) -> bytes:
+    """Encode a 2-D uint8 array as a grayscale PNG."""
+    img = PILImage.fromarray(arr_2d, mode="L")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def render_tile_assets(
+    tile_name: str,
+    out_dir: Path,
+    data_dir: Path,
+    *,
+    threshold: float = 0.5,
+) -> None:
+    """Render pre-baked PNGs, per-tile stats JSON, and thumbnail.
+
+    Creates ``out_dir/png/<tile_name>/`` with:
+    - ``<ch_idx>_pred.png``  — binary prediction
+    - ``<ch_idx>_gt.png``    — ground-truth mask
+    - ``<ch_idx>_prob.png``  — raw probability heat-map
+    - ``<ch_idx>_cam.png``   — Grad-CAM attention map
+    - ``stats.json``         — per-channel positive ratio / mean probability
+    - ``thumb_256.png``      — 256×256 H&E thumbnail
+    """
+    tile_dir = out_dir / "png" / tile_name
+    tile_dir.mkdir(parents=True, exist_ok=True)
+
+    pred_path = out_dir / f"{tile_name}_pred.npz"
+    gt_path = out_dir / f"{tile_name}_gt.npz"
+    cam_path = out_dir / f"{tile_name}_cam.npz"
+
+    # --- Prediction PNGs + stats -----------------------------------------
+    if pred_path.is_file():
+        probs = np.load(pred_path)["probs"]  # (23, H, W)
+        binary = (probs > threshold).astype(np.float32)
+        channel_stats = []
+        for i, name in enumerate(CHANNEL_NAMES):
+            # pred + prob PNGs for every channel
+            (tile_dir / f"{i}_pred.png").write_bytes(_encode_png(binary[i]))
+            (tile_dir / f"{i}_prob.png").write_bytes(_encode_png(probs[i]))
+            if name not in BACKGROUND:
+                channel_stats.append({
+                    "index": i,
+                    "name": name,
+                    "positiveRatio": round(float(binary[i].mean()), 4),
+                    "meanProbability": round(float(probs[i].mean()), 4),
+                })
+        stats_payload = {"tileName": tile_name, "channels": channel_stats}
+        (tile_dir / "stats.json").write_text(json.dumps(stats_payload, indent=2))
+
+    # --- Ground-truth PNGs -----------------------------------------------
+    if gt_path.is_file():
+        masks = np.load(gt_path)["masks"]  # (23, H, W)
+        for i in range(masks.shape[0]):
+            (tile_dir / f"{i}_gt.png").write_bytes(
+                _encode_png(masks[i].astype(np.float32))
+            )
+
+    # --- Grad-CAM PNGs ---------------------------------------------------
+    if cam_path.is_file():
+        cams = np.load(cam_path)["cams"]  # (23, H, W) uint8
+        for i in range(cams.shape[0]):
+            (tile_dir / f"{i}_cam.png").write_bytes(_encode_uint8_png(cams[i]))
+
+    # --- H&E thumbnail ---------------------------------------------------
+    he_path = data_dir / f"{tile_name}_he.png"
+    if he_path.is_file():
+        img = PILImage.open(he_path).convert("RGB")
+        img.thumbnail((THUMB_SIZE, THUMB_SIZE), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        (tile_dir / f"thumb_{THUMB_SIZE}.png").write_bytes(buf.getvalue())
+
+
+def render_only(out_dir: Path | None = None, data_dir: Path | None = None) -> None:
+    """Bake PNGs / stats / thumbnails from existing ``.npz`` files.
+
+    Does **not** load the model or run inference — purely CPU / disk.
+    """
+    from tqdm import tqdm
+
+    out = out_dir or OUT_DIR
+    data = data_dir or DATA_DIR
+
+    tiles = sorted({
+        p.stem.replace("_pred", "")
+        for p in out.glob("*_pred.npz")
+    })
+    if not tiles:
+        print(f"No *_pred.npz files in {out}")
+        return
+
+    print(f"Rendering assets for {len(tiles)} tiles → {out / 'png'}")
+    for tile_name in tqdm(tiles, desc="Rendering PNGs"):
+        render_tile_assets(
+            tile_name,
+            out,
+            data,
+            threshold=CONFIG.probability_threshold,
+        )
+    print("Done.")
+
+
 def main():
     from PIL import Image
     from tqdm import tqdm
+
+    parser = argparse.ArgumentParser(description="Pre-compute GigaTIME predictions & assets")
+    parser.add_argument(
+        "--render-only",
+        action="store_true",
+        help="Skip inference — bake PNGs/stats/thumbs from existing .npz files",
+    )
+    args = parser.parse_args()
+
+    if args.render_only:
+        render_only()
+        return
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -164,7 +307,7 @@ def main():
 
         # Inference
         chw = preprocess(img)
-        probs = infer(model, device, chw)  # (23, 512, 512)
+        probs = infer(model, device, chw)  # (C, H, W)
         np.savez_compressed(OUT_DIR / f"{tile_name}_pred.npz", probs=probs)
 
         # Ground truth
@@ -173,7 +316,7 @@ def main():
             np.savez_compressed(OUT_DIR / f"{tile_name}_gt.npz", masks=gt)
 
             # Metrics
-            binary = (probs > 0.5).astype(np.float32)
+            binary = (probs > CONFIG.probability_threshold).astype(np.float32)
             pearson = compute_box_pearson(binary, gt)
             row: dict = {"tile": tile_name}
             for i, name in enumerate(CHANNEL_NAMES):
@@ -182,6 +325,14 @@ def main():
                 if not np.isnan(val):
                     all_metrics[name].append(val)
             tile_metrics.append(row)
+
+        # Render PNGs / thumb / stats for this tile
+        render_tile_assets(
+            tile_name,
+            OUT_DIR,
+            DATA_DIR,
+            threshold=CONFIG.probability_threshold,
+        )
 
     # Summary
     summary = {

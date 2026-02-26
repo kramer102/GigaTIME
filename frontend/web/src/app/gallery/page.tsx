@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { fetchJSON, tileHEUrl, tileChannelUrl, type TileListResponse } from "@/lib/api";
+import { fetchJSON, tileHEUrl, tileThumbUrl, tileChannelUrl, type TileListResponse } from "@/lib/api";
 import { CHANNELS, ACTIVE_CHANNELS, CHANNEL_NAMES } from "@/lib/channels";
 import { ChannelPicker } from "@/components/ChannelPicker";
 import { ImageCompare } from "@/components/ImageCompare";
@@ -79,7 +79,7 @@ export default function GalleryPage() {
                 }}
               >
                 <img
-                  src={tileHEUrl(t)}
+                  src={tileThumbUrl(t)}
                   alt={t}
                   className="w-full aspect-square object-cover"
                   loading="lazy"

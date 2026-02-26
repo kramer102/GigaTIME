@@ -413,11 +413,13 @@ dependencies = [
     { name = "ipywidgets" },
     { name = "jupyterlab" },
     { name = "matplotlib" },
+    { name = "monai" },
     { name = "networkx" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pandas" },
     { name = "pillow" },
+    { name = "pip" },
     { name = "pyyaml" },
     { name = "qudida" },
     { name = "requests" },
@@ -452,11 +454,13 @@ requires-dist = [
     { name = "ipywidgets", specifier = "~=8.1" },
     { name = "jupyterlab", specifier = "~=4.2" },
     { name = "matplotlib", specifier = "~=3.9" },
+    { name = "monai", specifier = "~=1.4" },
     { name = "networkx", specifier = "~=3.3" },
     { name = "numpy", specifier = "~=2.2" },
     { name = "opencv-python-headless", specifier = "~=4.10" },
     { name = "pandas", specifier = "~=2.3" },
     { name = "pillow", specifier = "~=10.4" },
+    { name = "pip", specifier = ">=26.0.1" },
     { name = "pyyaml", specifier = "~=6.0" },
     { name = "qudida", specifier = "~=0.0.4" },
     { name = "requests", specifier = "~=2.32" },
@@ -1032,6 +1036,19 @@ wheels = [
 ]
 
 [[package]]
+name = "monai"
+version = "1.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/db/26/cb4a67d7ab99fa848cf9998d9159a2d368b2dacc6f94b983a4ab36cd9005/monai-1.5.2.tar.gz", hash = "sha256:11cba5bfaad85bbb7e95479071769a0e56f1d515646f6ee203f6d475889d3b25", size = 1687099, upload-time = "2026-01-27T13:14:42.616Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/11/36/0e1879b0c942f5f373e171656b4d22db4b50fad696a53e03828b6d00f5da/monai-1.5.2-py3-none-any.whl", hash = "sha256:6c4f75d47a88c1e37521bce4b7cb1540c6f4e5ca1d43910c60f61fc2ef4ddab2", size = 2674844, upload-time = "2026-01-27T13:14:41.049Z" },
+]
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1362,6 +1379,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/d7/a44f193d4c26e58ee5d2d9db3d4854b2cfb5b5e08d360a5e03fe987c0086/pillow-10.4.0-cp311-cp311-win32.whl", hash = "sha256:7086cc1d5eebb91ad24ded9f58bec6c688e9f0ed7eb3dbbf1e4800280a896496", size = 2235213, upload-time = "2024-07-01T09:46:10.211Z" },
     { url = "https://files.pythonhosted.org/packages/c1/d0/5866318eec2b801cdb8c82abf190c8343d8a1cd8bf5a0c17444a6f268291/pillow-10.4.0-cp311-cp311-win_amd64.whl", hash = "sha256:cbed61494057c0f83b83eb3a310f0bf774b09513307c434d4366ed64f4128a91", size = 2554498, upload-time = "2024-07-01T09:46:12.685Z" },
     { url = "https://files.pythonhosted.org/packages/d4/c8/310ac16ac2b97e902d9eb438688de0d961660a87703ad1561fd3dfbd2aa0/pillow-10.4.0-cp311-cp311-win_arm64.whl", hash = "sha256:f5f0c3e969c8f12dd2bb7e0b15d5c468b51e5017e01e2e867335c81903046a22", size = 2243219, upload-time = "2024-07-01T09:46:14.83Z" },
+]
+
+[[package]]
+name = "pip"
+version = "26.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/83/0d7d4e9efe3344b8e2fe25d93be44f64b65364d3c8d7bc6dc90198d5422e/pip-26.0.1.tar.gz", hash = "sha256:c4037d8a277c89b320abe636d59f91e6d0922d08a05b60e85e53b296613346d8", size = 1812747, upload-time = "2026-02-05T02:20:18.702Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/f0/c81e05b613866b76d2d1066490adf1a3dbc4ee9d9c839961c3fc8a6997af/pip-26.0.1-py3-none-any.whl", hash = "sha256:bdb1b08f4274833d62c1aa29e20907365a2ceb950410df15fc9521bad440122b", size = 1787723, upload-time = "2026-02-05T02:20:16.416Z" },
 ]
 
 [[package]]

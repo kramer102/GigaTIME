@@ -1,0 +1,11 @@
+services:
+  api:
+    networks:
+      app_internal: null
+  web:
+    networks:
+      app_internal: null
+
+networks:
+  app_internal:
+    internal: true

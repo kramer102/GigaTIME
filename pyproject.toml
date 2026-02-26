@@ -32,8 +32,10 @@ dependencies = [
     "stringzilla~=4.0",
     "typing-inspection~=0.4",
     "invoke~=2.2",
+    "monai~=1.4",
     "torch==2.4.*",
     "torchvision==0.19.*",
+    "pip>=26.0.1",
 ]
 
 [project.optional-dependencies]
