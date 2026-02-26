@@ -22,6 +22,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# Propagate API_URL to runtime for Route Handlers (rewrites are baked at build)
+ARG API_URL=http://localhost:8000
+ENV API_URL=${API_URL}
+
 # Run as non-root user
 RUN adduser -D appuser && chown -R appuser:appuser /app
 USER appuser
