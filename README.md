@@ -15,6 +15,12 @@
 
 </div>
 
+## Purpose of This Repository
+
+This repository is an **exploratory research project** for learning about and experimenting with the concepts behind GigaTIME — virtual multiplex immunofluorescence prediction from H&E-stained tissue. It includes a Next.js web frontend for interactive visualization, a FastAPI backend for model inference, and the original training/testing scripts. The goal is to make the deep learning pipeline, biological assumptions, and evaluation metrics approachable and easy to explore, not to provide a production-ready clinical tool.
+
+> **AI-Assisted Development:** Portions of the code, documentation, and frontend UI in this repository were developed with the assistance of AI coding tools (GitHub Copilot). All AI-generated content was reviewed and validated by the project maintainers. The underlying research, model architecture, and trained weights originate from the published GigaTIME paper (Valanarasu et al., *Cell*, 2025).
+
 ## Documentation
 
 See the docs hub for architecture, run instructions, troubleshooting, and Azure deployment:
@@ -171,6 +177,16 @@ Any deployed use case of the model --- commercial or otherwise --- is out of sco
 ## License Notice
 
 The model is not intended or made available for clinical use as a medical device, clinical support, diagnostic tool, or other technology intended to be used in the diagnosis, cure, mitigation, treatment, or prevention of disease or other conditions. The model is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment, or judgment and should not be used as such. All users are responsible for reviewing the output of the developed model to determine whether the model meets the user’s needs and for validating and evaluating the model before any clinical use.
+
+## AI-Assisted Development
+
+This project uses AI coding assistants (GitHub Copilot) for:
+
+- **Frontend development** — the Next.js web UI, including page layouts, interactive components, and educational content pages (e.g., the Methodology and Biology guides).
+- **Documentation** — README content, inline code comments, and docstrings.
+- **Scripting & tooling** — build automation, Docker configuration, and utility scripts.
+
+All AI-generated code and text has been reviewed by the project maintainers for correctness. The scientific content (model architecture, loss functions, training methodology) is grounded in the published GigaTIME paper and the actual source code in `scripts/`.
 
 ## Citation
 
