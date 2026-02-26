@@ -76,7 +76,7 @@ export default function HomePage() {
         <h2 className="text-xl font-bold mb-3">Source Materials</h2>
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
           <ExtLink
-            href="https://www.cell.com/cell/fulltext/S0092-8674(24)01396-3"
+            href="https://www.cell.com/cell/fulltext/S0092-8674(25)01312-1"
             icon="📄"
             title="Paper (Cell)"
             desc="Multimodal AI generates virtual population for tumor microenvironment modeling"

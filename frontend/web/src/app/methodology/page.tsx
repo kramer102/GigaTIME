@@ -195,8 +195,18 @@ export default function MethodologyPage() {
           <p>
             Training a virtual staining model requires <em>paired</em> data: the
             same tissue region imaged with both H&amp;E and multiplex
-            immunofluorescence (mIF). Because a single tissue section cannot be
-            stained twice, GigaTIME relies on two key techniques:
+            immunofluorescence (mIF). The only truly paired mIF/H&amp;E images
+            were an initial set of{" "}
+            <strong className="text-emerald-300">21 slides from a LUAD cohort</strong>
+            {" "}— 12 for training, 4 as the development set, and 5 held out for
+            testing. Though the number of slides is small, each whole-slide
+            image yields thousands of 256×256 patches. All other images in the
+            pipeline are H&amp;E-only slides whose channels are inferred
+            &ldquo;virtual stains.&rdquo;
+          </p>
+          <p>
+            Because a single tissue section cannot be stained twice, the paired
+            set relies on two key techniques:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -487,6 +497,39 @@ export default function MethodologyPage() {
             These binary masks can then be used for cell counting by dividing
             tiles into an 8×8 grid of boxes and summing positive pixels per box.
           </p>
+
+          {/* Cell Counting Methodology */}
+          <div className="rounded-lg bg-[var(--background)] p-4 mt-2">
+            <h3 className="text-sm font-bold text-[var(--accent)] mb-2">
+              Cell Counting Methodology
+            </h3>
+            <ul className="space-y-1.5 text-xs text-[var(--foreground)]/70">
+              <li className="flex items-start gap-2">
+                <span className="text-gray-400 mt-0.5">•</span>
+                <span>
+                  <strong className="text-[var(--foreground)]/90">mIF images:</strong>{" "}
+                  Cell counts derived using{" "}
+                  <span className="font-semibold text-[var(--accent)]">StarDist</span>{" "}
+                  nuclei detection on the DAPI channel.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-400 mt-0.5">•</span>
+                <span>
+                  <strong className="text-[var(--foreground)]/90">H&amp;E images:</strong>{" "}
+                  Cell counts derived by running StarDist directly on the RGB image.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-gray-400 mt-0.5">•</span>
+                <span>
+                  <strong className="text-[var(--foreground)]/90">Ground truth thresholding:</strong>{" "}
+                  Training labels used Otsu-thresholded mIF channels to produce binary masks.
+                  Virtual mIF predictions are not persisted — only the binary masks are used downstream.
+                </span>
+              </li>
+            </ul>
+          </div>
 
           <p className="text-xs text-[var(--muted)] italic">
             The 0.5 threshold is the default configured in the runtime settings.

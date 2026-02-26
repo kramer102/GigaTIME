@@ -180,6 +180,7 @@ export default function BiologyPage() {
               <li>Hematoxylin stains nuclei purple</li>
               <li>Eosin stains cytoplasm / ECM pink</li>
               <li>Shows tissue architecture, cell shapes</li>
+              <li>Can identify morphologically distinct cell types (lymphocytes, epithelial/tumor cells, plasma cells, fibroblasts) — but only by the trained eye of a pathologist</li>
               <li>Cannot identify specific protein expression</li>
               <li>Cheap, fast, non-destructive</li>
             </ul>
@@ -481,10 +482,20 @@ export default function BiologyPage() {
             pixels express each protein marker.
           </p>
           <p>
-            <span className="font-bold text-[var(--accent)]">Training:</span>{" "}
-            Trained on paired H&amp;E and COMET multiplex IF data from thousands of
-            tissue sections, using Dice loss + L1 loss + Pearson correlation loss to
-            learn both spatial accuracy and statistical consistency.
+            <span className="font-bold text-[var(--accent)]">Training Data:</span>{" "}
+            The only truly paired mIF/H&amp;E images were an initial set of{" "}
+            <strong>21 slides from a lung adenocarcinoma (LUAD) cohort</strong>{" "}
+            — 12 for training, 4 as the development set, and 5 held out for testing.
+            Though the number of slides is small, each whole-slide image yields
+            thousands of 256×256 patches, providing substantial training data.
+            All other images in the pipeline are H&amp;E-only slides whose channels
+            are &ldquo;virtual stains&rdquo; inferred by the model.
+          </p>
+          <p>
+            <span className="font-bold text-[var(--accent)]">Loss:</span>{" "}
+            Trained using Dice loss + L1 loss + Pearson correlation loss to
+            learn both spatial accuracy and statistical consistency. The ground-truth
+            mIF channels were Otsu-thresholded before training.
           </p>
           <p>
             <span className="font-bold text-[var(--accent)]">Scale:</span>{" "}
