@@ -15,6 +15,12 @@
 
 </div>
 
+## Documentation
+
+See the docs hub for architecture, run instructions, troubleshooting, and Azure deployment:
+
+- [documentation/README.md](documentation/README.md)
+
 ## Environment Setup
 
 We recommend using [`uv`](https://docs.astral.sh/uv/) for environment and dependency management. The codebase has been tested with Python 3.11 using A100 GPUs for optimal reproducibility.
