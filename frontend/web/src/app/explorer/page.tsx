@@ -10,9 +10,11 @@ import {
 } from "@/lib/api";
 import {
   CHANNELS,
-  ACTIVE_CHANNELS,
-  CHANNEL_NAMES,
+  CHANNEL_INDEX_BY_NAME,
   CATEGORY_COLORS,
+  CATEGORY_ORDER,
+  ChannelCategory,
+  ChannelName,
   groupByCategory,
 } from "@/lib/channels";
 import biomarkersData from "@/data/biomarkers.json";
@@ -26,6 +28,7 @@ export default function ExplorerPage() {
   const [mode, setMode] = useState<ViewMode>("pred");
   const [stats, setStats] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchJSON<TileListResponse>("/tiles").then((d) => {
@@ -41,7 +44,23 @@ export default function ExplorerPage() {
   }, [tile]);
 
   const groups = useMemo(() => groupByCategory(), []);
-  const order = ["immune", "checkpoint", "tumor", "structural"];
+  const order = CATEGORY_ORDER;
+
+  const modeLabel = mode === "pred"
+    ? "Prediction"
+    : mode === "gt"
+      ? "Ground Truth"
+      : mode === "overlay"
+        ? "Probability"
+        : "Interpretability";
+
+  const modeDescription = mode === "pred"
+    ? "Thresholded model mask."
+    : mode === "gt"
+      ? "Measured multiplex IF channel."
+      : mode === "overlay"
+        ? "Continuous model confidence map."
+        : "Class activation map (model attention).";
 
   if (loading) {
     return <p className="text-[var(--muted)] py-12 text-center">Loading…</p>;
@@ -51,7 +70,7 @@ export default function ExplorerPage() {
     <div className="max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-1">Channel Explorer</h1>
       <p className="text-sm text-[var(--muted)] mb-4">
-        See all 21 predicted protein channels for a selected tile. Toggle between
+        See all 21 biomarker channels (background channels excluded) for a selected tile. Toggle between
         model prediction, ground-truth mIF, or probability heatmap.
       </p>
 
@@ -84,6 +103,40 @@ export default function ExplorerPage() {
           ))}
         </div>
       </div>
+
+      <p className="text-xs text-[var(--muted)] mb-4">
+        <strong>{modeLabel}:</strong> {modeDescription}
+      </p>
+
+      {/* Composite summary */}
+      {stats && (
+        <section className="card mt-4 mb-6">
+          <h3 className="text-sm font-bold mb-3">Cell Composite Estimate</h3>
+          <div className="flex gap-4 flex-wrap">
+            {order.map((cat) => {
+              const chNames = groups[cat] ?? [];
+              const totalRatio = chNames.reduce((sum, n) => {
+                const s = stats.channels.find((c) => c.name === n);
+                return sum + (s?.positiveRatio ?? 0);
+              }, 0);
+              const color = CATEGORY_COLORS[cat as ChannelCategory];
+              return (
+                <div key={cat} className="text-center">
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color }}
+                  >
+                    {(totalRatio * 100).toFixed(1)}%
+                  </div>
+                  <div className="text-[0.65rem] text-[var(--muted)] uppercase">
+                    {cat}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* H&E reference */}
       <div className="card mb-6 inline-block">
@@ -120,9 +173,17 @@ export default function ExplorerPage() {
             </div>
             <div className="channel-grid">
               {chNames.map((name) => {
-                const idx = CHANNEL_NAMES.indexOf(name as (typeof CHANNEL_NAMES)[number]);
+                const idx = CHANNEL_INDEX_BY_NAME[name as ChannelName];
                 const kind = mode === "overlay" ? "prob" : mode;
                 const stat = stats?.channels.find((c) => c.name === name);
+                const imageKey = `${tile}:${kind}:${name}`;
+                const hasImageError = imageLoadErrors[imageKey] ?? false;
+
+                const metricValue = mode === "overlay"
+                  ? stat?.meanProbability
+                  : stat?.positiveRatio;
+                const metricLabel = mode === "overlay" ? "mean p" : "pos";
+
                 return (
                   <div key={name} className="card p-2">
                     <div className="relative w-full aspect-square mb-1.5 rounded-md overflow-hidden bg-black">
@@ -134,20 +195,45 @@ export default function ExplorerPage() {
                           loading="lazy"
                         />
                       )}
-                      <img
-                        src={tileChannelUrl(tile, idx, kind)}
-                        alt={name}
-                        className={`absolute inset-0 w-full h-full object-cover ${mode === "cam" ? "mix-blend-screen" : ""}`}
-                        loading="lazy"
-                      />
+                      {!hasImageError ? (
+                        <img
+                          src={tileChannelUrl(tile, idx, kind)}
+                          alt={name}
+                          className={`absolute inset-0 w-full h-full object-cover ${
+                            mode === "cam"
+                              ? "mix-blend-screen contrast-125 saturate-150"
+                              : mode === "overlay"
+                                ? "contrast-125 saturate-150"
+                                : ""
+                          }`}
+                          style={{
+                            imageRendering: mode === "pred" ? "pixelated" : "auto",
+                          }}
+                          loading="lazy"
+                          onError={() => {
+                            setImageLoadErrors((prev) => ({ ...prev, [imageKey]: true }));
+                          }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center text-center px-2">
+                          <span className="text-[0.62rem] text-[var(--muted)]">
+                            Unable to load {modeLabel.toLowerCase()} image
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold" style={{ color }}>
                         {name}
                       </span>
-                      {stat && (
+                      {mode !== "cam" && stat && metricValue !== undefined && (
                         <span className="text-[0.6rem] text-[var(--muted)]">
-                          {(stat.positiveRatio * 100).toFixed(1)}%
+                          {metricLabel} {(metricValue * 100).toFixed(1)}%
+                        </span>
+                      )}
+                      {mode === "cam" && (
+                        <span className="text-[0.6rem] text-[var(--muted)]">
+                          CAM view
                         </span>
                       )}
                     </div>
@@ -171,36 +257,6 @@ export default function ExplorerPage() {
           </section>
         );
       })}
-
-      {/* Composition summary */}
-      {stats && (
-        <section className="card mt-4">
-          <h3 className="text-sm font-bold mb-3">Cell Composition Estimate</h3>
-          <div className="flex gap-4 flex-wrap">
-            {order.map((cat) => {
-              const chNames = groups[cat] ?? [];
-              const totalRatio = chNames.reduce((sum, n) => {
-                const s = stats.channels.find((c) => c.name === n);
-                return sum + (s?.positiveRatio ?? 0);
-              }, 0);
-              const color = CATEGORY_COLORS[cat];
-              return (
-                <div key={cat} className="text-center">
-                  <div
-                    className="text-2xl font-bold"
-                    style={{ color }}
-                  >
-                    {(totalRatio * 100).toFixed(1)}%
-                  </div>
-                  <div className="text-[0.65rem] text-[var(--muted)] uppercase">
-                    {cat}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

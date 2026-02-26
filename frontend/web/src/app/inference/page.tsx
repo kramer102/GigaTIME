@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { ACTIVE_CHANNELS, CHANNELS, CATEGORY_COLORS, groupByCategory } from "@/lib/channels";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { ACTIVE_CHANNELS, CHANNELS, CATEGORY_COLORS, CATEGORY_ORDER, groupByCategory } from "@/lib/channels";
 
 interface InferenceResult {
   images: Record<string, string>; // name → base64 png
@@ -63,8 +63,8 @@ export default function InferencePage() {
     [handleFile],
   );
 
-  const groups = groupByCategory();
-  const order = ["immune", "checkpoint", "tumor", "structural"];
+  const groups = useMemo(() => groupByCategory(), []);
+  const order = CATEGORY_ORDER;
   const channelImg =
     result && selectedChannel ? result.images[selectedChannel] : null;
 
@@ -72,7 +72,8 @@ export default function InferencePage() {
     <div className="max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-1">Live Inference</h1>
       <p className="text-sm text-[var(--muted)] mb-6">
-        Upload an H&amp;E tissue tile and watch GigaTIME predict 23 protein channels
+        Upload an H&amp;E tissue tile and watch GigaTIME predict 23 output channels
+        (21 biomarkers + 2 background channels)
         in real-time using the local model.
       </p>
 
@@ -112,7 +113,7 @@ export default function InferencePage() {
               Running inference…
             </p>
             <p className="text-xs text-[var(--muted)]">
-              Model is predicting 23 protein channels. First run may take longer
+              Model is predicting 23 output channels. First run may take longer
               while the model loads.
             </p>
             <div className="w-48 h-1.5 bg-[var(--card-border)] rounded-full mx-auto mt-3 overflow-hidden">

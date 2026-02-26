@@ -2,7 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { tileHEUrl, tileChannelUrl } from "@/lib/api";
-import { CHANNEL_NAMES, CATEGORY_COLORS, groupByCategory } from "@/lib/channels";
+import {
+  CATEGORY_COLORS,
+  CATEGORY_ORDER,
+  CHANNEL_INDEX_BY_NAME,
+  ChannelName,
+  groupByCategory,
+} from "@/lib/channels";
 
 interface MultiplexViewerProps {
   tile: string;
@@ -11,9 +17,10 @@ interface MultiplexViewerProps {
 export default function MultiplexViewer({ tile }: MultiplexViewerProps) {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [channelColors, setChannelColors] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState(true);
 
   const groups = useMemo(() => groupByCategory(), []);
-  const order = ["immune", "checkpoint", "tumor", "structural"];
+  const order = CATEGORY_ORDER;
 
   const toggleChannel = (name: string) => {
     if (selectedChannels.includes(name)) {
@@ -28,7 +35,7 @@ export default function MultiplexViewer({ tile }: MultiplexViewerProps) {
       }
       setSelectedChannels([...selectedChannels, name]);
       // Assign a default color based on category or random
-      const cat = Object.keys(groups).find((k) => groups[k].includes(name));
+      const cat = Object.entries(groups).find(([, names]) => names.includes(name as ChannelName))?.[0] as keyof typeof CATEGORY_COLORS | undefined;
       setChannelColors({ ...channelColors, [name]: cat ? CATEGORY_COLORS[cat] : "#ffffff" });
     }
   };
@@ -39,10 +46,24 @@ export default function MultiplexViewer({ tile }: MultiplexViewerProps) {
 
   return (
     <div className="card p-4 mb-8">
-      <h2 className="text-lg font-bold mb-2">Multiplex Viewer</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-bold">Multiplex Viewer</h2>
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="px-3 py-1 rounded-lg text-xs font-medium border border-[var(--card-border)] bg-[var(--card)] hover:border-[var(--muted)] transition-colors"
+        >
+          {expanded ? "Minimize" : "Expand"}
+        </button>
+      </div>
       <p className="text-sm text-[var(--muted)] mb-4">
         Select up to 5 channels to overlay on the H&E image. Assign custom colors to each channel to visualize co-localization.
       </p>
+
+      {!expanded ? (
+        <p className="text-xs text-[var(--muted)]">Viewer minimized. Expand to adjust overlays and channels.</p>
+      ) : (
+      <>
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Viewer */}
@@ -57,7 +78,7 @@ export default function MultiplexViewer({ tile }: MultiplexViewerProps) {
             
             {/* Selected Channels */}
             {selectedChannels.map((name) => {
-              const idx = CHANNEL_NAMES.indexOf(name as any);
+              const idx = CHANNEL_INDEX_BY_NAME[name as ChannelName];
               const color = channelColors[name];
               
               return (
@@ -147,6 +168,8 @@ export default function MultiplexViewer({ tile }: MultiplexViewerProps) {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

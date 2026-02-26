@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from monai.inferers import sliding_window_inference
 from PIL import Image
 
@@ -185,6 +185,30 @@ def _encode_png(arr_2d: np.ndarray, cmap: str = "gray") -> bytes:
     return buf.getvalue()
 
 
+def _json_response(content, cache_control: str) -> JSONResponse:
+    return JSONResponse(content=content, headers={"Cache-Control": cache_control})
+
+
+def _foreground_channel_entries():
+    for i, name in enumerate(CHANNEL_NAMES):
+        if name in BACKGROUND_CHANNELS:
+            continue
+        yield i, name
+
+
+def _build_channel_stats(probs: np.ndarray, threshold: float) -> list[dict]:
+    binary = (probs > threshold).astype(np.float32)
+    channel_stats = []
+    for i, name in _foreground_channel_entries():
+        channel_stats.append({
+            "index": i,
+            "name": name,
+            "positiveRatio": round(float(binary[i].mean()), 4),
+            "meanProbability": round(float(probs[i].mean()), 4),
+        })
+    return channel_stats
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -215,8 +239,7 @@ def get_channels():
             "description": meta["desc"],
             "isBackground": name in BACKGROUND_CHANNELS,
         })
-    from fastapi.responses import JSONResponse
-    return JSONResponse(content=channels, headers={"Cache-Control": _SHORT})
+    return _json_response(channels, _SHORT)
 
 
 @app.get("/api/tiles")
@@ -228,10 +251,9 @@ def get_tiles():
     })
     raw_tiles = _tile_names()
     tiles = raw_tiles if raw_tiles else precomputed_tiles
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
+    return _json_response(
         content={"tiles": tiles, "precomputed": precomputed_tiles, "dataDir": str(DATA_DIR)},
-        headers={"Cache-Control": _SHORT},
+        cache_control=_SHORT,
     )
 
 
@@ -287,7 +309,7 @@ async def get_tile_channel(
         )
 
     # ---- Slow path: decompress .npz via LRU cache ----------------------
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _render():
         if kind == "cam":
@@ -295,6 +317,8 @@ async def get_tile_channel(
             if not cam_path.is_file():
                 raise HTTPException(404, f"Precomputed data not found for {tile_name} (cam)")
             cams = load_cam(PRECOMPUTED, tile_name)  # cached
+            if channel_idx < 0 or channel_idx >= cams.shape[0]:
+                raise HTTPException(400, "Invalid channel index")
             arr = cams[channel_idx]
             img = Image.fromarray(arr, mode="L")
             buf = io.BytesIO()
@@ -339,10 +363,9 @@ async def get_tile_prediction_json(request: Request, tile_name: str):
     # ---- Fast path: pre-rendered stats.json ----------------------------
     stats_path = PNG_DIR / tile_name / "stats.json"
     if stats_path.is_file():
-        from fastapi.responses import JSONResponse
-        return JSONResponse(
+        return _json_response(
             content=json.loads(stats_path.read_text()),
-            headers={"Cache-Control": _IMMUTABLE},
+            cache_control=_IMMUTABLE,
         )
 
     # ---- Slow path: compute from .npz ---------------------------------
@@ -350,26 +373,16 @@ async def get_tile_prediction_json(request: Request, tile_name: str):
     if not pred_path.is_file():
         raise HTTPException(404, "Precomputed prediction not found")
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _compute():
         probs = load_pred(PRECOMPUTED, tile_name)
-        binary = (probs > request.app.state.runtime_config.probability_threshold).astype(np.float32)
-        channel_stats = []
-        for i, name in enumerate(CHANNEL_NAMES):
-            if name in BACKGROUND_CHANNELS:
-                continue
-            channel_stats.append({
-                "index": i,
-                "name": name,
-                "positiveRatio": round(float(binary[i].mean()), 4),
-                "meanProbability": round(float(probs[i].mean()), 4),
-            })
+        threshold = request.app.state.runtime_config.probability_threshold
+        channel_stats = _build_channel_stats(probs, threshold)
         return {"tileName": tile_name, "channels": channel_stats}
 
     result = await loop.run_in_executor(None, _compute)
-    from fastapi.responses import JSONResponse
-    return JSONResponse(content=result, headers={"Cache-Control": _IMMUTABLE})
+    return _json_response(result, _IMMUTABLE)
 
 
 @app.get("/api/metrics")
@@ -378,10 +391,9 @@ def get_metrics():
     metrics_path = PRECOMPUTED / "metrics_summary.json"
     if not metrics_path.is_file():
         raise HTTPException(404, "Metrics not computed yet. Run precompute.py first.")
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
+    return _json_response(
         content=json.loads(metrics_path.read_text()),
-        headers={"Cache-Control": _IMMUTABLE},
+        cache_control=_IMMUTABLE,
     )
 
 
@@ -416,31 +428,17 @@ async def infer_upload(request: Request, file: UploadFile = File(...)):
     chw = _preprocess_image(img_array, target_size=config.input_size)
     probs = _run_inference(chw, request.app.state.model, request.app.state.model_device, config)  # (23, H, W)
     binary = (probs > config.probability_threshold).astype(np.float32)
-
-    channel_stats = []
-    for i, name in enumerate(CHANNEL_NAMES):
-        if name in BACKGROUND_CHANNELS:
-            continue
-        channel_stats.append({
-            "index": i,
-            "name": name,
-            "positiveRatio": round(float(binary[i].mean()), 4),
-            "meanProbability": round(float(probs[i].mean()), 4),
-        })
+    channel_stats = _build_channel_stats(probs, config.probability_threshold)
 
     # Encode each channel as base64 PNG for the frontend
     import base64
     channel_images = {}
-    for i, name in enumerate(CHANNEL_NAMES):
-        if name in BACKGROUND_CHANNELS:
-            continue
+    for i, name in _foreground_channel_entries():
         png_bytes = _encode_png(binary[i])
         channel_images[name] = base64.b64encode(png_bytes).decode()
 
     prob_images = {}
-    for i, name in enumerate(CHANNEL_NAMES):
-        if name in BACKGROUND_CHANNELS:
-            continue
+    for i, name in _foreground_channel_entries():
         png_bytes = _encode_png(probs[i])
         prob_images[name] = base64.b64encode(png_bytes).decode()
 

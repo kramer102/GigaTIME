@@ -8,10 +8,10 @@ An interactive React + FastAPI application for exploring GigaTIME virtual multip
 |-------|-------------|
 | `/` | **Home** — Overview of virtual staining, the GigaTIME pipeline, and navigation |
 | `/gallery` | **Gallery** — Browse sample tiles with an interactive H&E ↔ mIF comparison slider |
-| `/explorer` | **Channel Explorer** — View all 21 predicted protein channels for any tile |
+| `/explorer` | **Channel Explorer** — View 21 biomarker channels (excludes 2 background channels) for any tile |
 | `/biology` | **Biology Guide** — TME primer, channel-by-channel explanations, spatial patterns |
 | `/metrics` | **Metrics Dashboard** — Pearson correlation charts, category breakdowns, heatmaps |
-| `/inference` | **Live Inference** — Upload your own H&E tile for real-time 23-channel prediction |
+| `/inference` | **Live Inference** — Upload your own H&E tile for real-time 23-channel output (21 biomarkers + 2 background channels) |
 
 ## Quick Start (Local)
 
@@ -63,7 +63,7 @@ frontend/
 │   │   ├── app/              # Next.js App Router pages
 │   │   │   ├── page.tsx      # Home
 │   │   │   ├── gallery/      # Tile gallery + comparison
-│   │   │   ├── explorer/     # 21-channel grid viewer
+│   │   │   ├── explorer/     # 21-biomarker grid viewer (background channels hidden)
 │   │   │   ├── biology/      # TME educational guide
 │   │   │   ├── metrics/      # Recharts dashboards
 │   │   │   └── inference/    # Live upload + inference
@@ -79,4 +79,4 @@ frontend/
 
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS v4, Recharts
 - **Backend**: FastAPI, PyTorch, NumPy, SciPy, Pillow
-- **Model**: UNet++ (Nested U-Net), 3-channel RGB → 23-channel binary protein maps
+- **Model**: UNet++ (Nested U-Net), 3-channel RGB → 23-channel output maps (21 biomarkers + 2 background channels)
