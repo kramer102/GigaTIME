@@ -1,0 +1,126 @@
+{
+  "experiment": {
+    "totalPatches": 12536,
+    "nTrain": 10035,
+    "nTest": 2501,
+    "nSlides": 195,
+    "patchSize": 256,
+    "stride": 256,
+    "bgThreshold": 0.5,
+    "labelMethod": "majority_vote",
+    "splitMethod": "GroupShuffleSplit",
+    "splitGroups": "slide_id",
+    "testSize": 0.2,
+    "seed": 42,
+    "rfEstimators": 300,
+    "rfMaxDepth": null,
+    "rfClassWeight": "balanced",
+    "rfCriterion": "gini",
+    "rfNJobs": -1,
+    "positiveThreshold": 0.5,
+    "nBioChannels": 21,
+    "nVmifFeatures": 63,
+    "nRgbFeatures": 6,
+    "nCombinedFeatures": 69
+  },
+  "tissueLabels": [
+    "invasive_tumor",
+    "tumor_assoc_stroma",
+    "in_situ_tumor",
+    "healthy_glands",
+    "necrosis",
+    "inflamed_stroma",
+    "rest"
+  ],
+  "tissueDisplayNames": {
+    "invasive_tumor": "Invasive Tumor",
+    "tumor_assoc_stroma": "Tumor-assoc. Stroma",
+    "in_situ_tumor": "In-situ Tumor",
+    "healthy_glands": "Healthy Glands",
+    "necrosis": "Necrosis",
+    "inflamed_stroma": "Inflamed Stroma",
+    "rest": "Rest"
+  },
+  "comparison": [
+    { "tag": "rgb_baseline", "label": "RGB Baseline", "accuracy": 0.507, "f1_macro": 0.329, "f1_weighted": 0.485, "n_features": 6 },
+    { "tag": "vmif", "label": "Virtual mIF", "accuracy": 0.5866, "f1_macro": 0.366, "f1_weighted": 0.5593, "n_features": 63 },
+    { "tag": "vmif_plus_rgb", "label": "Virtual mIF + RGB", "accuracy": 0.6186, "f1_macro": 0.3849, "f1_weighted": 0.5892, "n_features": 69 }
+  ],
+  "perClass": {
+    "vmif": {
+      "invasive_tumor":     { "precision": 0.5935, "recall": 0.7214, "f1": 0.6512, "support": 858 },
+      "tumor_assoc_stroma": { "precision": 0.5476, "recall": 0.6454, "f1": 0.5925, "support": 829 },
+      "in_situ_tumor":      { "precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 117 },
+      "healthy_glands":     { "precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 17 },
+      "necrosis":           { "precision": 0.3636, "recall": 0.0345, "f1": 0.063, "support": 116 },
+      "inflamed_stroma":    { "precision": 0.5739, "recall": 0.478, "f1": 0.5216, "support": 341 },
+      "rest":               { "precision": 0.8343, "recall": 0.6547, "f1": 0.7337, "support": 223 }
+    },
+    "rgb_baseline": {
+      "invasive_tumor":     { "precision": 0.5273, "recall": 0.5524, "f1": 0.5396, "support": 858 },
+      "tumor_assoc_stroma": { "precision": 0.4712, "recall": 0.5923, "f1": 0.5249, "support": 829 },
+      "in_situ_tumor":      { "precision": 0.125, "recall": 0.0085, "f1": 0.016, "support": 117 },
+      "healthy_glands":     { "precision": 0.1667, "recall": 0.0588, "f1": 0.087, "support": 17 },
+      "necrosis":           { "precision": 0.0476, "recall": 0.0086, "f1": 0.0146, "support": 116 },
+      "inflamed_stroma":    { "precision": 0.5397, "recall": 0.478, "f1": 0.507, "support": 341 },
+      "rest":               { "precision": 0.6143, "recall": 0.6143, "f1": 0.6143, "support": 223 }
+    },
+    "vmif_plus_rgb": {
+      "invasive_tumor":     { "precision": 0.6, "recall": 0.7483, "f1": 0.666, "support": 858 },
+      "tumor_assoc_stroma": { "precision": 0.5886, "recall": 0.6731, "f1": 0.628, "support": 829 },
+      "in_situ_tumor":      { "precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 117 },
+      "healthy_glands":     { "precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 17 },
+      "necrosis":           { "precision": 0.75, "recall": 0.0259, "f1": 0.05, "support": 116 },
+      "inflamed_stroma":    { "precision": 0.6849, "recall": 0.5865, "f1": 0.6319, "support": 341 },
+      "rest":               { "precision": 0.809, "recall": 0.6457, "f1": 0.7182, "support": 223 }
+    }
+  },
+  "importances": {
+    "vmif": [
+      { "feature": "CD138_mean_prob",       "importance": 0.0270, "channel": "CD138",      "metric": "mean_prob" },
+      { "feature": "Transgelin_spatial_var", "importance": 0.0260, "channel": "Transgelin", "metric": "spatial_var" },
+      { "feature": "CK_mean_prob",           "importance": 0.0253, "channel": "CK",         "metric": "mean_prob" },
+      { "feature": "Caspase3-D_mean_prob",   "importance": 0.0249, "channel": "Caspase3-D", "metric": "mean_prob" },
+      { "feature": "DAPI_mean_prob",         "importance": 0.0238, "channel": "DAPI",       "metric": "mean_prob" },
+      { "feature": "Transgelin_mean_prob",   "importance": 0.0238, "channel": "Transgelin", "metric": "mean_prob" },
+      { "feature": "CD20_mean_prob",         "importance": 0.0231, "channel": "CD20",       "metric": "mean_prob" },
+      { "feature": "PD-1_mean_prob",         "importance": 0.0228, "channel": "PD-1",       "metric": "mean_prob" },
+      { "feature": "PHH3-B_mean_prob",       "importance": 0.0225, "channel": "PHH3-B",     "metric": "mean_prob" },
+      { "feature": "Tryptase_spatial_var",   "importance": 0.0225, "channel": "Tryptase",   "metric": "spatial_var" },
+      { "feature": "CD34_mean_prob",         "importance": 0.0220, "channel": "CD34",       "metric": "mean_prob" },
+      { "feature": "DAPI_spatial_var",       "importance": 0.0209, "channel": "DAPI",       "metric": "spatial_var" },
+      { "feature": "CK_spatial_var",         "importance": 0.0207, "channel": "CK",         "metric": "spatial_var" },
+      { "feature": "CD4_mean_prob",          "importance": 0.0205, "channel": "CD4",        "metric": "mean_prob" },
+      { "feature": "Actin-D_spatial_var",    "importance": 0.0200, "channel": "Actin-D",    "metric": "spatial_var" }
+    ],
+    "vmif_plus_rgb": [
+      { "feature": "R_var",                  "importance": 0.0392, "channel": "RGB",        "metric": "var" },
+      { "feature": "R_mean",                 "importance": 0.0388, "channel": "RGB",        "metric": "mean" },
+      { "feature": "B_mean",                 "importance": 0.0354, "channel": "RGB",        "metric": "mean" },
+      { "feature": "G_mean",                 "importance": 0.0313, "channel": "RGB",        "metric": "mean" },
+      { "feature": "CK_mean_prob",           "importance": 0.0248, "channel": "CK",         "metric": "mean_prob" },
+      { "feature": "B_var",                  "importance": 0.0241, "channel": "RGB",        "metric": "var" },
+      { "feature": "Transgelin_spatial_var", "importance": 0.0234, "channel": "Transgelin", "metric": "spatial_var" },
+      { "feature": "CD138_mean_prob",        "importance": 0.0230, "channel": "CD138",      "metric": "mean_prob" },
+      { "feature": "G_var",                  "importance": 0.0205, "channel": "RGB",        "metric": "var" },
+      { "feature": "Caspase3-D_mean_prob",   "importance": 0.0199, "channel": "Caspase3-D", "metric": "mean_prob" },
+      { "feature": "PD-1_mean_prob",         "importance": 0.0192, "channel": "PD-1",       "metric": "mean_prob" },
+      { "feature": "Transgelin_mean_prob",   "importance": 0.0190, "channel": "Transgelin", "metric": "mean_prob" },
+      { "feature": "PHH3-B_mean_prob",       "importance": 0.0189, "channel": "PHH3-B",     "metric": "mean_prob" },
+      { "feature": "CD34_mean_prob",         "importance": 0.0182, "channel": "CD34",       "metric": "mean_prob" },
+      { "feature": "CD20_mean_prob",         "importance": 0.0182, "channel": "CD20",       "metric": "mean_prob" }
+    ]
+  },
+  "confusionMatrix": {
+    "labels": ["invasive_tumor", "tumor_assoc_stroma", "in_situ_tumor", "healthy_glands", "necrosis", "inflamed_stroma", "rest"],
+    "matrix": [
+      [642, 175,  8, 0,  1, 28,   4],
+      [205, 558,  1, 0,  0, 48,  17],
+      [ 92,  18,  0, 0,  0,  7,   0],
+      [  7,   8,  0, 0,  0,  2,   0],
+      [ 31,  63,  0, 0,  3,  7,  12],
+      [ 87,  53,  0, 0,  0, 200,  1],
+      [  6,  73,  0, 0,  0,  0, 144]
+    ]
+  }
+}

@@ -140,6 +140,12 @@ export default function HomePage() {
           title="Live Inference"
           desc="Upload your own H&E patch and see instant virtual staining"
         />
+        <NavCard
+          href="/tiger-rf"
+          icon="🌲"
+          title="TIGER in a Random Forest"
+          desc="Random Forest tissue classification using virtual mIF features on the TIGER breast-cancer dataset"
+        />
       </section>
     </div>
   );

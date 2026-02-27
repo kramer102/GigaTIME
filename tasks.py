@@ -190,6 +190,30 @@ def compose_up_api_gpu_sudo(c):
     )
 
 
+@task(
+    help={
+        "tiger_dir": "Path to TIGER dataset root (default: data/tiger).",
+        "output_dir": "Directory for results (default: outputs/tiger_rf).",
+        "batch_size": "GigaTIME inference batch size (default: 16).",
+        "skip_inference": "Reuse cached features from a previous run.",
+        "n_estimators": "Number of RF trees (default: 300).",
+    }
+)
+def tiger_rf(c, tiger_dir="data/tiger", output_dir="outputs/tiger_rf",
+             batch_size=16, skip_inference=False, n_estimators=300):
+    """Run patch-level tissue classification (virtual mIF + Random Forest) on TIGER."""
+    skip_flag = " --skip-inference" if skip_inference else ""
+    c.run(
+        f"uv run python scripts/tiger_rf_tissue_classification.py "
+        f"--tiger-dir {tiger_dir} "
+        f"--output-dir {output_dir} "
+        f"--batch-size {batch_size} "
+        f"--n-estimators {n_estimators}"
+        f"{skip_flag}",
+        pty=True,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Azure helpers
 # ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ const NAV = [
   { href: "/methodology", label: "Methodology", icon: "🧠" },
   { href: "/metrics", label: "Metrics", icon: "📊" },
   { href: "/inference", label: "Live Inference", icon: "⚡" },
+  { href: "/tiger-rf", label: "TIGER in a Random Forest", icon: "🌲" },
 ];
 
 export function Sidebar() {

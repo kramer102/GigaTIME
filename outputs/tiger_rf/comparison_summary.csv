@@ -1,0 +1,4 @@
+tag,accuracy,f1_macro,f1_weighted,n_train,n_test,n_features
+vmif,0.5866,0.366,0.5593,10035,2501,63
+rgb_baseline,0.507,0.329,0.485,10035,2501,6
+vmif_plus_rgb,0.6186,0.3849,0.5892,10035,2501,69

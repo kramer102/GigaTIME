@@ -1,0 +1,8 @@
+,invasive_tumor,tumor_assoc_stroma,in_situ_tumor,healthy_glands,necrosis,inflamed_stroma,rest
+invasive_tumor,619,191,7,1,1,36,3
+tumor_assoc_stroma,208,535,3,0,2,69,12
+in_situ_tumor,93,16,0,0,2,6,0
+healthy_glands,9,4,0,0,0,3,1
+necrosis,33,60,0,0,4,7,12
+inflamed_stroma,73,104,0,0,0,163,1
+rest,8,67,0,0,2,0,146
